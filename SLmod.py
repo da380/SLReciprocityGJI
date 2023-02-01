@@ -145,10 +145,7 @@ def ocean_function(sl,ice):
             else:
                 C.data[ith,iph] = 0.
 
-    # compute the ocean area
-    A = surface_integral(C)
-
-    return C,A
+    return C
 
 
 
@@ -215,42 +212,42 @@ def centrifugal_perturbation(Dphi_lm,Dpsi_lm):
 
 
 ##############################################################
-# function to solve the fingerprint problem for a given change
-# in ice thickness
-def fingerprint(sl,ice,Dice,rotation=True):
+# function to solve the generalised fingerprint problem for a
+# given displacement and potential loads
+def generalised_fingerprint(C,zeta,zeta_u,zeta_p,rotation=True):
 
     # get the maximum degree
-    L = sl.lmax
+    L = C.lmax
 
+    # get the ocean area
+    A = surface_integral(C)
+    
     # get the love numbers
     data = np.loadtxt('data/love.dat')
-    h = data[:L+1,1] + data[:L+1,3]
-    k = data[:L+1,2] + data[:L+1,4]
+    hu = data[:L+1,1]
+    hp = data[:L+1,3]
+    ku = data[:L+1,2]
+    kp = data[:L+1,4]
+    h = hu + hp
+    k = ku + kp
     ht = data[2,5]
     kt = data[2,6]
     
-    # initialise sea level change
-    Dsl = sl.copy()
-    
-    # make the ocean function
-    C,A = ocean_function(sl,ice)
-
     # calculate the average change in sea level
-    Dicep = Dice*(1.-C)
-    Mice = rhoi*surface_integral(Dicep)
-    Dslu = -Mice/(rhow*A)
-    onegrid = sl.copy()
+    Mload = surface_integral(zeta)
+    slu  = -Mload/(rhow*A)
+    onegrid = pysh.SHGrid.from_zeros(lmax=L,grid='GLQ',kind=kind)
     onegrid.data[:,:] = 1.
-    Dsl = Dslu*onegrid
+    sl = slu*onegrid
 
 
     # initialise displacement and potential perturbations
-    Du_lm   = pysh.SHCoeffs.from_zeros(lmax=sl.lmax,normalization=normalization,kind=kind,csphase=csphase)
-    Dphi_lm = Du_lm.copy()
-    Dpsi_lm = Du_lm.copy()
+    u_lm   = pysh.SHCoeffs.from_zeros(lmax=sl.lmax,normalization=normalization,kind=kind,csphase=csphase)
+    phi_lm = u_lm.copy()
+    psi_lm = u_lm.copy()
 
     # store the initial guess
-    Dsl0 = Dsl.copy()
+    sl0 = sl.copy()
     err = 1.
 
     # start the iterations
@@ -259,45 +256,62 @@ def fingerprint(sl,ice,Dice,rotation=True):
 
         it = it+1
         
-        # compute the initial load
-        Dsigma = rhow*C*Dsl + rhoi*Dicep
-        Dsigma_lm = Dsigma.expand(normalization=normalization,csphase=csphase)
+        # compute the current loads
+        sigma = rhow*C*sl + zeta
+        sigma_lm  = sigma.expand(normalization=normalization,csphase=csphase)
+        zeta_u_lm = zeta_u.expand(normalization=normalization,csphase=csphase)
+        zeta_p_lm = zeta_p.expand(normalization=normalization,csphase=csphase)        
         
         # determine the response to the loading
         for l in range(L+1):
-            Du_lm.coeffs[:,l,:]   = h[l]*Dsigma_lm.coeffs[:,l,:]
-            Dphi_lm.coeffs[:,l,:] = k[l]*Dsigma_lm.coeffs[:,l,:]
+            u_lm.coeffs[:,l,:]   =   h[l]*sigma_lm.coeffs[:,l,:]  \
+                                    + hu[l]*zeta_u_lm.coeffs[:,l,:] \
+                                    + hp[l]*zeta_p_lm.coeffs[:,l,:]
+
+            phi_lm.coeffs[:,l,:] =   k[l]*sigma_lm.coeffs[:,l,:]  \
+                                    + ku[l]*zeta_u_lm.coeffs[:,l,:] \
+                                    + kp[l]*zeta_p_lm.coeffs[:,l,:] 
+        
 
         # add in the centrifugal contribution
-        Du_lm.coeffs[:,2,:]   = Du_lm.coeffs[:,2,:]   + ht*Dpsi_lm.coeffs[:,2,:]
-        Dphi_lm.coeffs[:,2,:] = Dphi_lm.coeffs[:,2,:] + kt*Dpsi_lm.coeffs[:,2,:]
+        u_lm.coeffs[:,2,:]   = u_lm.coeffs[:,2,:]   + ht*psi_lm.coeffs[:,2,:]
+        phi_lm.coeffs[:,2,:] = phi_lm.coeffs[:,2,:] + kt*psi_lm.coeffs[:,2,:]
 
         # get the centrifugal potential perturbation
         if(rotation):
-            centrifugal_perturbation(Dphi_lm,Dpsi_lm)
+            centrifugal_perturbation(phi_lm,psi_lm)
 
         # get the spatial fields
-        Du   = Du_lm.expand(grid='GLQ')
-        Dphi = Dphi_lm.expand(grid='GLQ')
-        Dpsi = Dpsi_lm.expand(grid='GLQ')
+        u   =   u_lm.expand(grid='GLQ')
+        phi = phi_lm.expand(grid='GLQ')
+        psi = psi_lm.expand(grid='GLQ')
 
 
         # update the sea level
-        int    = ocean_integral(C,g*Du + Dphi + Dpsi)
-        Dsl    = -1.*(g*Du + Dphi + Dpsi)/g +(int/(g*A) + Dslu)*onegrid
+        int    = ocean_integral(C,g*u + phi + psi)
+        sl    = -1.*(g*u + phi + psi)/g +(int/(g*A) + slu)*onegrid
 
         # get the change since the last iteration
-        err = np.max(np.abs(Dsl.data - Dsl0.data))/np.abs(Dslu)
+        err = np.max(np.abs(sl.data - sl0.data))/np.abs(slu)
 
         print('iteration = ',it,'relative change = ',err)
         
         # store the most recent solution
-        Dsl0 = Dsl.copy()
+        sl0 = sl.copy()
         
         
-    return Dsl,Du,Dphi
+    return sl,u,phi,psi
 
 
 
+##############################################################
+# function to solve the fingerprint problem for a given change
+# in ice thickness
+def fingerprint(C,ice,rotation=True):
+    L = C.lmax
+    zeta   = rhoi*(1.-C)*ice
+    zeta_u = pysh.SHGrid.from_zeros(lmax=L,grid='GLQ',kind=kind)
+    zeta_p = pysh.SHGrid.from_zeros(lmax=L,grid='GLQ',kind=kind)
+    return generalised_fingerprint(C,zeta,zeta_u,zeta_p,rotation)
 
 
