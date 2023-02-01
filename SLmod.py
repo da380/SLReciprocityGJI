@@ -295,7 +295,7 @@ def fingerprint(sl,ice,Dice,rotation=True):
         Dsl0 = Dsl.copy()
         
         
-    return Dsl
+    return Dsl,Du,Dphi
 
 
 
