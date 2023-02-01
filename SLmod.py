@@ -3,7 +3,6 @@ import numpy as np
 import cartopy.crs as ccrs
 import pyshtools as pysh
 from numpy import pi as pi
-from scipy.special import sph_harm
 from scipy import interpolate 
 sentinel = object()
 
