@@ -10,6 +10,7 @@ sentinel = object()
 if __name__ == "__main__":
     pass
 
+
 #########################################################
 # set some constants
 b    = 6371000.          # mean radius of the Earth
@@ -188,7 +189,7 @@ def greenland_mask(C,ice0,val = np.nan):
 #############################################################
 # returns function equal to 1 where there is ice and val
 # elsewhere
-def antarctic_mask(C,ice0,val = np.nan):
+def antarctica_mask(C,ice0,val = np.nan):
     mask = (1-C)*ice0
     mask.data = np.where(np.real(mask.data) > 0.,1.,val)
     nlat = mask.nlat
@@ -268,9 +269,10 @@ def centrifugal_perturbation(om,psi_lm):
     psi_lm.coeffs[0,2,1] = b**2*Om*np.sqrt((2.*pi)/15.)*(-om[0] + 1j*om[1])
     return
 
-##############################################################
-# function to solve the generalised fingerprint problem for a
-# given displacement and potential loads
+
+    
+#####################################################################
+# function to solve the fingerprint problem for a given direct load
 def fingerprint(C,zeta,rotation=True):
 
     # get the maximum degree
@@ -285,6 +287,7 @@ def fingerprint(C,zeta,rotation=True):
     k = data[:L+1,2] + data[:L+1,4]
     ht = data[2,5]
     kt = data[2,6]
+
     
     # calculate the average change in sea level
     slu = -surface_integral(zeta)/(rhow*A)
@@ -292,7 +295,7 @@ def fingerprint(C,zeta,rotation=True):
     onegrid.data[:,:] = 1.
     sl = slu*onegrid
     
-    # initialise displacement, potential, and rotation perturbations
+    # initialise displacement and potential perturbations
     u_lm   = pysh.SHCoeffs.from_zeros(lmax=sl.lmax,normalization=normalization, \
                                       kind=kind,csphase=csphase)
     phi_lm = u_lm.copy()
@@ -393,3 +396,8 @@ def point_load(L,lats,lons,angle = 0.,w=[sentinel]):
                
     return pl
 
+
+
+
+
+    
