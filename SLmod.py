@@ -248,7 +248,7 @@ def zero_northern_hemisphere(fin):
 def inertia_tensor_perturbation(phi_lm):
     j = np.zeros(2)
     j[0] = -np.sqrt(5./(6.*pi))*(b**3/G)*np.real(phi_lm.coeffs[0,2,1]) 
-    j[1] = -np.sqrt(5./(6.*pi))*(b**3/G)*np.imag(phi_lm.coeffs[0,2,1])
+    j[1] =  np.sqrt(5./(6.*pi))*(b**3/G)*np.imag(phi_lm.coeffs[0,2,1])
     return j
 
 
