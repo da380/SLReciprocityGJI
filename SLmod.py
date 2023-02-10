@@ -264,10 +264,11 @@ def rotation_vector_perturbation(j):
 ######################################################################
 # returns the centrifugal potential perturbation in spherical harmonic
 # domain given the rotation vector perturbation
-def centrifugal_perturbation(om,psi_lm):
-    psi_lm.coeffs[1,2,1] = b**2*Om*np.sqrt((2.*pi)/15.)*( om[0] + 1j*om[1])
-    psi_lm.coeffs[0,2,1] = b**2*Om*np.sqrt((2.*pi)/15.)*(-om[0] + 1j*om[1])
-    return
+def centrifugal_perturbation(om):
+    psi_2m = np.zeros([2,3],dtype = complex)
+    psi_2m[1,1] = b**2*Om*np.sqrt((2.*pi)/15.)*( om[0] + 1j*om[1])
+    psi_2m[0,1] = b**2*Om*np.sqrt((2.*pi)/15.)*(-om[0] + 1j*om[1])
+    return psi_2m
 
 
     
@@ -327,7 +328,8 @@ def fingerprint(C,zeta,rotation=True):
         if(rotation):
             j  = inertia_tensor_perturbation(phi_lm)
             om = rotation_vector_perturbation(j)
-            centrifugal_perturbation(om,psi_lm)
+            psi_2m =             centrifugal_perturbation(om)
+            psi_lm.coeffs[:,2,:3] = psi_2m
 
         # get the spatial fields
         u   =   u_lm.expand(grid='GLQ')
@@ -376,7 +378,7 @@ def point_load(L,lats,lons,angle = 0.,w=[sentinel]):
     ths = 90.- lats
     phs = lons + 180.
                
-    pl_lm = pysh.SHCoeffs.from_zeros(lmax=L,csphase=-1,normalization='ortho',kind='complex')
+    pl_lm = pysh.SHCoeffs.from_zeros(lmax=L,csphase=-1,normalization=normalization,kind=kind)
                
     for isource in range(len(lats)):
 
@@ -397,7 +399,85 @@ def point_load(L,lats,lons,angle = 0.,w=[sentinel]):
     return pl
 
 
-
-
-
+############################################################
+# transforms a function under the Sobolev mapping
+def sobolev_mapping(u,s,mu):   
+    u_lm = u.expand(normalization=normalization,csphase=csphase)
+    L = u_lm.lmax
+    for l in range(L+1):
+        fac = 1.0 + mu*mu*l*(l+1)
+        fac = fac**(-s)
+        u_lm.coeffs[:,l,:] = fac*u_lm.coeffs[:,l,:]
+    u = u_lm.expand(grid='GLQ')
+    return u
     
+
+#############################################################
+# computes the Sobolev inner product. Note that default
+# values of s and mu given the special case of the L2 product
+def inner_product(u,v,s = 0., mu = 0.):
+    u_lm = u.expand(normalization=normalization,csphase=csphase)
+    v_lm = u.expand(normalization=normalization,csphase=csphase)
+    L = u_lm.lmax
+    p = 0.
+    for l in range(L+1):
+        fac = 1.0+mu*mu*l*(l+1)
+        fac = fac**s
+        p = p + fac*np.conjugate(u_lm.coeffs[0,l,0])*v_lm.coeffs[0,l,0]
+        for m in range(1,l+1):
+            p = p + fac*np.conjugate(u_lm.coeffs[0,l,m])*v_lm.coeffs[0,l,m]
+            p = p + fac*np.conjugate(u_lm.coeffs[1,l,m])*v_lm.coeffs[1,l,m]            
+    return np.real(p*b*b)
+        
+        
+##############################################################
+# sets Laplacian-type covariance
+def laplace_covariance(L,std = 1.,s = 0.,mu = 0.):
+    Q = np.zeros(L+1)
+    norm = 0.
+    for l in range(L+1):
+        fac = 1.+mu*mu*l*(l+1)
+        fac = fac**(-s)
+        norm = norm + (2*l+1)*fac/(4*pi)
+        Q[l] = fac
+    Q = std*std*Q/norm
+    return Q
+
+###############################################################
+# generates random field with Laplacian like covariance
+def random_field(Q):
+    L = Q.size-1
+    fun_lm = pysh.SHCoeffs.from_zeros(lmax=L,csphase=csphase, \
+                                      normalization=normalization,kind=kind)
+    for l in range(L+1):
+        fac = np.sqrt(Q[l])
+        ranr = np.random.normal(size = l+1)
+        rani = np.random.normal(size = l+1)
+        fun_lm.coeffs[0,l,0] = fac*ranr[0]
+        for m in range(1,l+1):
+            fun_lm.coeffs[0,l,m] = fac*(ranr[m] + 1j*rani[m])
+            fun_lm.coeffs[1,l,m] = (-1)**m*np.conjugate(fun_lm.coeffs[0,l,m])
+    fun = fun_lm.expand(grid='GLQ')
+        
+    return fun
+
+################################################################
+# returns the two-point correlation function for a random field
+# given the covariance operator
+def correlation_function(Q,lat0 = 0.,lon0 = 0.):
+    L = Q.size-1    
+    ths = 90.- lat0
+    phs = lon0 + 180.               
+    cf_lm = pysh.SHCoeffs.from_zeros(lmax=L,csphase=-1,normalization=normalization,kind=kind)               
+    ylm = pysh.expand.spharm(cf_lm.lmax,ths,phs,csphase=csphase,normalization=normalization,kind=kind)        
+    for l in range(0,cf_lm.lmax+1):
+        fac = Q[l]
+        cf_lm.coeffs[0,l,0] = cf_lm.coeffs[0,l,0] + ylm[0,l,0]*fac
+        for m in range(1,l+1):
+            cf_lm.coeffs[0,l,m] = cf_lm.coeffs[0,l,m] + (-1)**m*ylm[1,l,m]*fac
+            cf_lm.coeffs[1,l,m] = cf_lm.coeffs[1,l,m] + (-1)**m*ylm[0,l,m]*fac
+    cf = cf_lm.expand(grid='GLQ')
+    return cf
+
+
+
