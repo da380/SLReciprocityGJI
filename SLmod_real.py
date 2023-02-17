@@ -28,18 +28,15 @@ Me = 5.974e24            # mass of the Earth
 ##########################################################
 # set some options
 ep = 1.e-6              # tolerance for iterations
-kind = 'complex'         # type of fields
-csphase = -1             # Condon Shortley Phase
-normalization = 'ortho'  # normalisation convention
 ##########################################################
 
 
 ######################################################################
 # function to plot geographic data on GL grid. If complex data is
 # input, only the real part is plotted
-def geo_plot(data,cstring='RdBu'):
+def geo_plot(fun,cstring='RdBu'):
     ax = plt.axes(projection=ccrs.PlateCarree())
-    plt.pcolormesh(data.lons()-180,data.lats(),np.real(data.data),shading = 'gouraud',cmap=cstring)
+    plt.pcolormesh(fun.lons()-180,fun.lats(),fun.data,shading = 'gouraud',cmap=cstring)
     ax.coastlines()
     plt.colorbar()
     plt.show()
@@ -52,7 +49,7 @@ def geo_plot(data,cstring='RdBu'):
 def get_sl_ice_data(L):
 
     # initialise the grids
-    sl = pysh.SHGrid.from_zeros(lmax=L,grid='GLQ',kind=kind)
+    sl = pysh.SHGrid.from_zeros(lmax=L,grid = 'GLQ')
     ice = sl.copy()
     
     dat = np.loadtxt('data/ice6g0.dat')
@@ -60,24 +57,24 @@ def get_sl_ice_data(L):
     nlat = int(dat[0,0])
     nlon = int(dat[0,1])
     
-    sld = np.zeros([nlat,nlon],dtype = complex)
+    sld = np.zeros([nlat,nlon])
     latd = np.zeros([nlat,nlon])
     lond = np.zeros([nlat,nlon])
-    icd = np.zeros([nlat,nlon],dtype = complex)
+    icd = np.zeros([nlat,nlon])
 
         
     k = 0
     for ilon in range(nlon):
         for ilat in range(nlat):
             k = k + 1
-            latd[ilat,ilon] = dat[k,1]
-            lond[ilat,ilon] = dat[k,0]+180.
-            icd[ilat,ilon] = dat[k,2]
-            sld[ilat,ilon] = -dat[k,3]
+            latd[ilat,ilon] =  dat[k,1]
+            lond[ilat,ilon] =  dat[k,0]+180.
+            icd[ilat,ilon]  =  dat[k,2]
+            sld[ilat,ilon]  = -dat[k,3]
              
     
     # form the interpolating function for SL
-    fun = interpolate.interp2d(lond[0,:],latd[:,0],np.real(sld),kind='linear')
+    fun = interpolate.interp2d(lond[0,:],latd[:,0],sld,kind='linear')
     nlatgrid = sl.nlat
     nlongrid = sl.nlon
     lat = sl.lats()
@@ -90,7 +87,7 @@ def get_sl_ice_data(L):
 
 
     # form the interpolating function for ice
-    fun = interpolate.interp2d(lond[0,:],latd[:,0],np.real(icd),kind='linear')
+    fun = interpolate.interp2d(lond[0,:],latd[:,0],icd,kind='linear')
     
 
     #interpolate onto ice grid
@@ -99,7 +96,6 @@ def get_sl_ice_data(L):
             ice.data[ilat,ilon] = fun(lon[ilon],lat[ilat])
             
     # correct sl where there is land-based ice
-    #sl = sl + ice
     for ilat in range(nlatgrid):
         for ilon in range(nlongrid):
             if(ice.data[ilat,ilon] > 0 and sl.data[ilat,ilon] < 0):
@@ -112,8 +108,8 @@ def get_sl_ice_data(L):
 ###################################################################
 # integrates a function over the surface
 def surface_integral(fun):
-    fun_lm = fun.expand(normalization=normalization,csphase=csphase,lmax_calc = 0)
-    int = np.sqrt(4*pi)*b*b*np.real(fun_lm.coeffs[0,0,0])
+    fun_lm = fun.expand(lmax_calc = 0,normalization = 'ortho')
+    int = np.sqrt(4*pi)*b*b*fun_lm.coeffs[0,0,0]
     return int
 
 
@@ -121,8 +117,8 @@ def surface_integral(fun):
 # integrates a function over the oceans
 def ocean_integral(C,fun):
     tmp    = C*fun
-    tmp_lm = tmp.expand(normalization=normalization,csphase=csphase,lmax_calc = 0)
-    int = np.sqrt(4*pi)*b*b*np.real(tmp_lm.coeffs[0,0,0])
+    tmp_lm = tmp.expand(lmax_calc = 0,normalization = 'ortho')
+    int = np.sqrt(4*pi)*b*b*tmp_lm.coeffs[0,0,0]
     return int
 
 
@@ -132,8 +128,6 @@ def ocean_function(sl0,ice0):
     C = sl0.copy()
     nlat = sl0.nlat
     nlon = sl0.nlon
-    
-    # set the ocean function
     for ilat in range(nlat):
         for ilon in range(nlon):            
             sll  = sl0.data[ilat,ilon] 
@@ -147,84 +141,59 @@ def ocean_function(sl0,ice0):
 
 #############################################################
 # returns function equal to 1 in oceans and val on land
-def ocean_mask(C,val = np.nan):
-    mask = C.copy()
-    mask.data = np.where(np.real(C.data) == 1.,1.,val)
+def ocean_mask(sl0,ice0,val = np.nan):
+    mask = sl0.copy()
+    for ilat in range(mask.nlat):
+        for ilon in range(mask.nlon):            
+            sll  = sl0.data[ilat,ilon] 
+            icel = ice0.data[ilat,ilon]            
+            if(rhow*sll - rhoi*icel >= 0.): 
+                mask.data[ilat,ilon] = 1.
+            else:
+                mask.data[ilat,ilon] = val
     return mask
 
 #############################################################
 # returns function equal to 1 on land and val in oceans
-def land_mask(C,val = np.nan):
-    mask = C.copy()
-    mask.data = np.where(np.real(C.data) == 0.,1.,val)
+def land_mask(sl0,ice0,val = np.nan):
+    mask = sl0.copy()
+    for ilat in range(mask.nlat):
+        for ilon in range(mask.nlon):            
+            sll  = sl0.data[ilat,ilon] 
+            icel = ice0.data[ilat,ilon]            
+            if(rhow*sll - rhoi*icel >= 0.): 
+                mask.data[ilat,ilon] = val
+            else:
+                mask.data[ilat,ilon] = 1.
     return mask
 
 
 #############################################################
 # returns function equal to 1 where there is ice and val
 # elsewhere
-def ice_mask(C,ice0,val = np.nan):
-    mask = (1-C)*ice0
-    mask.data = np.where(np.real(mask.data) > 0.,1.,val)
+def ice_mask(sl0,ice0,val = np.nan):
+    mask = sl0.copy()
+    for ilat in range(mask.nlat):
+        for ilon in range(mask.nlon):            
+            sll  = sl0.data[ilat,ilon] 
+            icel = ice0.data[ilat,ilon]            
+            if(rhow*sll - rhoi*icel < 0. and icel > 0.): 
+                mask.data[ilat,ilon] = 1.
+            else:
+                mask.data[ilat,ilon] = val
     return mask
-
-
-#############################################################
-# returns function equal to 1 where there is ice and val
-# elsewhere
-def greenland_mask(C,ice0,val = np.nan):
-    mask = (1-C)*ice0
-    mask.data = np.where(np.real(mask.data) > 0.,1.,val)
-    nlat = mask.nlat
-    nlon = mask.nlon    
-    for ilat in range(nlat):
-        lat = mask.lats()[ilat]
-        for ilon in range(nlon):
-            lon = mask.lons()[ilon]
-            if(lat < 60 or lon < 50):
-                mask.data[ilat,ilon] = val                
-    return mask
-
-
-#############################################################
-# returns function equal to 1 where there is ice and val
-# elsewhere
-def antarctica_mask(C,ice0,val = np.nan):
-    mask = (1-C)*ice0
-    mask.data = np.where(np.real(mask.data) > 0.,1.,val)
-    nlat = mask.nlat
-    nlon = mask.nlon    
-    for ilat in range(nlat):
-        lat = mask.lats()[ilat]
-        if(lat > 0):
-            mask.data[ilat,:] = val                
-    return mask
-
-
-#############################################################
-# function to read in the generalised Love numbers from a file
-# and return them up to the required degree
-def get_love_numbers(L):
-    data = np.loadtxt('data/love_U.dat')
-    hu = data[0:L+1,1]
-    ku = data[0:L+1,3]
-    data = np.loadtxt('data/love_P.dat')
-    hp = data[0:L+1,1]
-    kp = data[0:L+1,3]
-    return hu,ku,hp,kp
 
 
 #############################################################
 # sets a spatial grid's values to zero in the southern
 # hemisphere
 def zero_southern_hemisphere(fin):
-    nlat = fin.nlat
-    lats = fin.lats()
     fout = fin.copy()
-    for ilat in range(nlat):
-        lat = lats[ilat]
+    ilat = 0
+    for lat in fout.lats():
         if(lat < 0.):
-            fout.data[ilat,:] = 0.    
+            fout.data[ilat,:] = 0.
+        ilat += 1
     return fout
 
 
@@ -232,13 +201,12 @@ def zero_southern_hemisphere(fin):
 # sets a spatial grid's values to zero in the northern
 # hemisphere
 def zero_northern_hemisphere(fin):
-    nlat = fin.nlat
-    lats = fin.lats()
     fout = fin.copy()
-    for ilat in range(nlat):
-        lat = lats[ilat]
+    ilat = 0
+    for lat in fout.lats():
         if(lat > 0.):
-            fout.data[ilat,:] = 0.    
+            fout.data[ilat,:] = 0.
+        ilat += 1
     return fout
 
 
@@ -247,14 +215,8 @@ def zero_northern_hemisphere(fin):
 # tensor perturbation from the gravitational potential
 def inertia_tensor_perturbation(phi_lm):
     j = np.zeros(2)
-    j[0] = -np.sqrt(5./(6.*pi))*(b**3/G)*np.real(phi_lm.coeffs[0,2,1]) 
-    j[1] =  np.sqrt(5./(6.*pi))*(b**3/G)*np.imag(phi_lm.coeffs[0,2,1])
-    return j
-
-def inertia_tensor_perturbation_real(phi_lm):
-    j = np.zeros(2)
-    j[0] =  np.sqrt(5./3.)*(b**3/G)*phi_lm.coeffs[0,2,1] 
-    j[1] =  np.sqrt(5./3.)*(b**3/G)*phi_lm.coeffs[1,2,1]
+    j[0] =  np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[0,2,1] 
+    j[1] =  np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[1,2,1]
     return j
 
 
@@ -271,15 +233,9 @@ def rotation_vector_perturbation(j):
 # returns the centrifugal potential perturbation in spherical harmonic
 # domain given the rotation vector perturbation
 def centrifugal_perturbation(om):
-    psi_2m = np.zeros([2,3],dtype = complex)
-    psi_2m[0,1] = b**2*Om*np.sqrt((2.*pi)/15.)*(-om[0] + 1j*om[1])
-    psi_2m[1,1] = b**2*Om*np.sqrt((2.*pi)/15.)*( om[0] + 1j*om[1])
-    return psi_2m
-
-def centrifugal_perturbation_real(om):
     psi_2m = np.zeros([2,3])
-    psi_2m[0,1] = b**2*Om*np.sqrt(1./15.)*om[0]
-    psi_2m[1,1] = b**2*Om*np.sqrt(1./15.)*om[1]
+    psi_2m[0,1] = b**2*Om*np.sqrt((4*pi)/15.)*om[0]
+    psi_2m[1,1] = b**2*Om*np.sqrt((4*pi)/15.)*om[1]
     return psi_2m
 
 
@@ -304,13 +260,12 @@ def fingerprint(C,zeta,rotation=True):
     
     # calculate the average change in sea level
     slu = -surface_integral(zeta)/(rhow*A)
-    onegrid = pysh.SHGrid.from_zeros(lmax=L,grid='GLQ',kind=kind)
+    onegrid = pysh.SHGrid.from_zeros(lmax=L,grid = 'GLQ')
     onegrid.data[:,:] = 1.
     sl = slu*onegrid
     
     # initialise displacement and potential perturbations
-    u_lm   = pysh.SHCoeffs.from_zeros(lmax=sl.lmax,normalization=normalization, \
-                                      kind=kind,csphase=csphase)
+    u_lm   = pysh.SHCoeffs.from_zeros(lmax=sl.lmax,normalization = 'ortho')
     phi_lm = u_lm.copy()
     psi_lm = u_lm.copy()
         
@@ -324,7 +279,7 @@ def fingerprint(C,zeta,rotation=True):
         
         # compute the current loads
         sigma = rhow*C*sl + zeta
-        sigma_lm  = sigma.expand(normalization=normalization,csphase=csphase)
+        sigma_lm  = sigma.expand(normalization = 'ortho')
         
         # determine the response to the loading
         for l in range(L+1):
@@ -344,9 +299,9 @@ def fingerprint(C,zeta,rotation=True):
             psi_lm.coeffs[:,2,:3] = psi_2m
 
         # get the spatial fields
-        u   =   u_lm.expand(grid='GLQ')
-        phi = phi_lm.expand(grid='GLQ')
-        psi = psi_lm.expand(grid='GLQ')
+        u   =   u_lm.expand(grid = 'GLQ')
+        phi = phi_lm.expand(grid = 'GLQ')
+        psi = psi_lm.expand(grid = 'GLQ')
 
 
         # update the sea level
@@ -396,20 +351,19 @@ def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
     
     # calculate the average change in sea level
     slu = -surface_integral(zeta)/(rhow*A)
-    onegrid = pysh.SHGrid.from_zeros(lmax=L,grid='GLQ',kind=kind)
+    onegrid = pysh.SHGrid.from_zeros(lmax=L)
     onegrid.data[:,:] = 1.
     sl = slu*onegrid
     
     # initialise displacement and potential perturbations
-    u_lm   = pysh.SHCoeffs.from_zeros(lmax=sl.lmax,normalization=normalization, \
-                                      kind=kind,csphase=csphase)
+    u_lm   = pysh.SHCoeffs.from_zeros(lmax=sl.lmax,normalization = 'ortho')
     phi_lm = u_lm.copy()
     psi_lm = u_lm.copy()
 
 
     # expand the generalised loads
-    zeta_u_lm   = zeta_u.expand(normalization=normalization,csphase=csphase)
-    zeta_phi_lm = zeta_phi.expand(normalization=normalization,csphase=csphase)
+    zeta_u_lm   = zeta_u.expand(normalization = 'ortho')
+    zeta_phi_lm = zeta_phi.expand(normalization = 'ortho')
 
     # start the iterations
     err = 1.
@@ -418,7 +372,7 @@ def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
         
         # compute the current loads
         sigma       = rhow*C*sl + zeta
-        sigma_lm    = sigma.expand(normalization=normalization,csphase=csphase)
+        sigma_lm    = sigma.expand(normalization = 'ortho')
         
         # determine the response to the loading
         for l in range(L+1):
@@ -442,9 +396,9 @@ def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
             psi_lm.coeffs[:,2,:3] = psi_2m
             
         # get the spatial fields
-        u   =   u_lm.expand(grid='GLQ')
-        phi = phi_lm.expand(grid='GLQ')
-        psi = psi_lm.expand(grid='GLQ')
+        u   =   u_lm.expand(grid = 'GLQ')
+        phi = phi_lm.expand(grid = 'GLQ')
+        psi = psi_lm.expand(grid = 'GLQ')
 
         # update the sea level
         fac = ocean_integral(C,g*u + phi + psi)/(g*A) + slu
@@ -471,7 +425,7 @@ def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
 
 
 #####################################################################
-def point_load(L,lats,lons,angle = 0.,w=[sentinel]):
+def point_load(L,lats,lons,grid = 'GLQ',angle = 0.,w=[sentinel]):
 # function returns a point load at a given geographic location
 # Note that the result is defined on a unit sphere and so will
 # need to be normalised in other cases
@@ -488,23 +442,22 @@ def point_load(L,lats,lons,angle = 0.,w=[sentinel]):
     ths = 90.- lats
     phs = lons + 180.
                
-    pl_lm = pysh.SHCoeffs.from_zeros(lmax=L,csphase=-1,normalization=normalization,kind=kind)
+    pl_lm = pysh.SHCoeffs.from_zeros(lmax=L,normalization = 'ortho')
                
     for isource in range(len(lats)):
 
-        ylm = pysh.expand.spharm(pl_lm.lmax,ths[isource],phs[isource], \
-                                 csphase=csphase,normalization=normalization,kind=kind)
+        ylm = pysh.expand.spharm(pl_lm.lmax,ths[isource],phs[isource],normalization = 'ortho')
         
         for l in range(0,pl_lm.lmax+1):
             fac = np.exp(-l*(l+1)*t)
             pl_lm.coeffs[0,l,0] = pl_lm.coeffs[0,l,0] + w[isource]*ylm[0,l,0]*fac
             for m in range(1,l+1):
-                pl_lm.coeffs[0,l,m] = pl_lm.coeffs[0,l,m] + (-1)**m*w[isource]*ylm[1,l,m]*fac
-                pl_lm.coeffs[1,l,m] = pl_lm.coeffs[1,l,m] + (-1)**m*w[isource]*ylm[0,l,m]*fac
+                pl_lm.coeffs[0,l,m] = pl_lm.coeffs[0,l,m] + w[isource]*ylm[0,l,m]*fac
+                pl_lm.coeffs[1,l,m] = pl_lm.coeffs[1,l,m] + w[isource]*ylm[1,l,m]*fac
 
 
     pl_lm = (1/b**2)*pl_lm
-    pl = pl_lm.expand(grid='GLQ')
+    pl = pl_lm.expand(grid = 'GLQ')
                
     return pl
 
@@ -512,13 +465,13 @@ def point_load(L,lats,lons,angle = 0.,w=[sentinel]):
 ############################################################
 # transforms a function under the Sobolev mapping
 def sobolev_mapping(u,s,mu):   
-    u_lm = u.expand(normalization=normalization,csphase=csphase)
+    u_lm = u.expand(normalization = 'ortho')
     L = u_lm.lmax
     for l in range(L+1):
         fac = 1.0 + mu*mu*l*(l+1)
         fac = fac**(-s)
         u_lm.coeffs[:,l,:] = fac*u_lm.coeffs[:,l,:]
-    u = u_lm.expand(grid='GLQ')
+    u = u_lm.expand(grid = 'GLQ')
     return u
     
 
@@ -526,18 +479,18 @@ def sobolev_mapping(u,s,mu):
 # computes the Sobolev inner product. Note that default
 # values of s and mu given the special case of the L2 product
 def inner_product(u,v,s = 0., mu = 0.):
-    u_lm = u.expand(normalization=normalization,csphase=csphase)
-    v_lm = u.expand(normalization=normalization,csphase=csphase)
+    u_lm = u.expand(normalization = 'ortho')
+    v_lm = u.expand(normalization = 'ortho')
     L = u_lm.lmax
     p = 0.
     for l in range(L+1):
         fac = 1.0+mu*mu*l*(l+1)
         fac = fac**s
-        p = p + fac*np.conjugate(u_lm.coeffs[0,l,0])*v_lm.coeffs[0,l,0]
+        p = p + fac*u_lm.coeffs[0,l,0]*v_lm.coeffs[0,l,0]
         for m in range(1,l+1):
-            p = p + fac*np.conjugate(u_lm.coeffs[0,l,m])*v_lm.coeffs[0,l,m]
-            p = p + fac*np.conjugate(u_lm.coeffs[1,l,m])*v_lm.coeffs[1,l,m]            
-    return np.real(p*b*b)
+            p = p + fac*u_lm.coeffs[0,l,m]*v_lm.coeffs[0,l,m]
+            p = p + fac*u_lm.coeffs[1,l,m]*v_lm.coeffs[1,l,m]            
+    return p*b*b
         
         
 ##############################################################
@@ -557,19 +510,16 @@ def laplace_covariance(L,std = 1.,s = 0.,mu = 0.):
 # generates random field with Laplacian like covariance
 def random_field(Q):
     L = Q.size-1
-    fun_lm = pysh.SHCoeffs.from_zeros(lmax=L,csphase=csphase, \
-                                      normalization=normalization,kind=kind)
+    fun_lm = pysh.SHCoeffs.from_zeros(lmax=L,normalization = 'ortho')
     for l in range(L+1):
         fac = np.sqrt(Q[l])
-        ranr = np.random.normal(size = l+1)
-        rani = np.random.normal(size = l+1)
-        fun_lm.coeffs[0,l,0] = fac*ranr[0]
+        ranp = np.random.normal(size = l+1)
+        rann = np.random.normal(size = l+1)
+        fun_lm.coeffs[0,l,0] = fac*ranp[0]
         for m in range(1,l+1):
-            fun_lm.coeffs[0,l,m] = fac*(ranr[m] + 1j*rani[m])
-            fun_lm.coeffs[1,l,m] = (-1)**m*np.conjugate(fun_lm.coeffs[0,l,m])
-    fun = fun_lm.expand(grid='GLQ')
-        
-    return fun
+            fun_lm.coeffs[0,l,m] = fac*ranp[m]
+            fun_lm.coeffs[1,l,m] = fac*rann[m]
+    return fun_lm.expand(grid = 'GLQ')        
 
 ################################################################
 # returns the two-point correlation function for a random field
@@ -578,15 +528,15 @@ def correlation_function(Q,lat0 = 0.,lon0 = 0.):
     L = Q.size-1    
     ths = 90.- lat0
     phs = lon0 + 180.               
-    cf_lm = pysh.SHCoeffs.from_zeros(lmax=L,csphase=-1,normalization=normalization,kind=kind)               
-    ylm = pysh.expand.spharm(cf_lm.lmax,ths,phs,csphase=csphase,normalization=normalization,kind=kind)        
-    for l in range(0,cf_lm.lmax+1):
+    cf_lm = pysh.SHCoeffs.from_zeros(lmax=L,normalization = 'ortho')               
+    ylm = pysh.expand.spharm(cf_lm.lmax,ths,phs,normalization = 'ortho')        
+    for l in range(L+1):
         fac = Q[l]
         cf_lm.coeffs[0,l,0] = cf_lm.coeffs[0,l,0] + ylm[0,l,0]*fac
         for m in range(1,l+1):
-            cf_lm.coeffs[0,l,m] = cf_lm.coeffs[0,l,m] + (-1)**m*ylm[1,l,m]*fac
-            cf_lm.coeffs[1,l,m] = cf_lm.coeffs[1,l,m] + (-1)**m*ylm[0,l,m]*fac
-    cf = cf_lm.expand(grid='GLQ')
+            cf_lm.coeffs[0,l,m] = cf_lm.coeffs[0,l,m] + ylm[0,l,m]*fac
+            cf_lm.coeffs[1,l,m] = cf_lm.coeffs[1,l,m] + ylm[1,l,m]*fac
+    cf = cf_lm.expand(grid = 'GLQ')
     return cf
 
 
