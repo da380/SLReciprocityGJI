@@ -215,8 +215,8 @@ def zero_northern_hemisphere(fin):
 # tensor perturbation from the gravitational potential
 def inertia_tensor_perturbation(phi_lm):
     j = np.zeros(2)
-    j[0] =  -np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[0,2,1] 
-    j[1] =  -np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[1,2,1]
+    j[0] =  np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[0,2,1] 
+    j[1] =  np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[1,2,1]
     return j
 
 
@@ -424,7 +424,7 @@ def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
 
         # get the centrifugal potential perturbation
         if(rotation):
-            j  = inertia_tensor_perturbation(phi_lm) + lv/Om
+            j  = inertia_tensor_perturbation(phi_lm) - lv/Om
             om = rotation_vector_perturbation(j)
             psi_2m = centrifugal_perturbation_coefficients(om)
             psi_lm.coeffs[:,2,:3] = psi_2m
