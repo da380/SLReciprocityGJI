@@ -27,16 +27,19 @@ Me = 5.974e24            # mass of the Earth
 
 ##########################################################
 # set some options
-ep = 1.e-6              # tolerance for iterations
+ep = 1.e-6             # tolerance for iterations
 ##########################################################
 
 
 ######################################################################
 # function to plot geographic data on GL grid. If complex data is
 # input, only the real part is plotted
-def plot(fun,cstring='RdBu'):
+def plot(fun,cstring='RdBu',contour = False, ncont = 6):
     ax = plt.axes(projection=ccrs.PlateCarree())
-    plt.pcolormesh(fun.lons()-180,fun.lats(),fun.data,shading = 'gouraud',cmap=cstring)
+    if(contour):
+        plt.contourf(fun.lons()-180,fun.lats(),fun.data,cmap=cstring,levels = ncont)
+    else:
+        plt.pcolormesh(fun.lons()-180,fun.lats(),fun.data,shading = 'gouraud',cmap=cstring)
     ax.coastlines()
     plt.colorbar()
     plt.show()
@@ -126,10 +129,8 @@ def ocean_integral(C,fun):
 # function that returns the ocean function and ocean area
 def ocean_function(sl0,ice0):
     C = sl0.copy()
-    nlat = sl0.nlat
-    nlon = sl0.nlon
-    for ilat in range(nlat):
-        for ilon in range(nlon):            
+    for ilat in range(C.nlat):
+        for ilon in range(C.nlon):            
             sll  = sl0.data[ilat,ilon] 
             icel = ice0.data[ilat,ilon]            
             if(rhow*sll - rhoi*icel >= 0.): 
@@ -184,16 +185,29 @@ def ice_mask(sl0,ice0,val = np.nan):
     return mask
 
 
+# returns function equal to 1 in oceans for lat in [lat1,lat2]
+# and equal to val elsewhere
+def altimetry_mask(sl0,ice0,lat1 = -66., lat2 = 66.,val = np.nan):
+    mask = sl0.copy()
+    for ilat,lat in enumerate(mask.lats()):
+        for ilon,lon in enumerate(mask.lons()):
+            sll  = sl0.data[ilat,ilon] 
+            icel = ice0.data[ilat,ilon]            
+            if(rhow*sll - rhoi*icel >= 0. and icel == 0 and lat >= lat1 and lat <= lat2): 
+                mask.data[ilat,ilon] = 1.
+            else:
+                mask.data[ilat,ilon] = val
+    return mask
+
+
 #############################################################
 # sets a spatial grid's values to zero in the southern
 # hemisphere
 def zero_southern_hemisphere(fin):
     fout = fin.copy()
-    ilat = 0
-    for lat in fout.lats():
+    for ilat,lat in enumerate(fout.lats()):
         if(lat < 0.):
             fout.data[ilat,:] = 0.
-        ilat += 1
     return fout
 
 
@@ -202,30 +216,25 @@ def zero_southern_hemisphere(fin):
 # hemisphere
 def zero_northern_hemisphere(fin):
     fout = fin.copy()
-    ilat = 0
-    for lat in fout.lats():
+    for ilat,lat in enumerate(fout.lats()):
         if(lat > 0.):
             fout.data[ilat,:] = 0.
-        ilat += 1
     return fout
 
 
 #####################################################################
-# returns the jx = i_{zx} and jy = i_{zy} components of the inertia
-# tensor perturbation from the gravitational potential
+# returns the jx = Om*i_{zx} and jy = Om*i_{zy} components of the
+# torque perturbation associated with the gravitational potential
 def inertia_tensor_perturbation(phi_lm):
-    j = np.zeros(2)
-    j[0] =  np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[0,2,1] 
-    j[1] =  np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[1,2,1]
+    j = Om*np.sqrt(5./(12*pi))*(b**3/G)*phi_lm.coeffs[:,2,1] 
     return j
-
+ 
 
 #####################################################################
 # returns the rotation vector perturbations given those for the
-# inertia tensor
+# torque vector, j.
 def rotation_vector_perturbation(j):
-    om = np.zeros(2)
-    om = Om*j/(CC-AA)
+    om = j/(CC-AA)
     return om
 
 
@@ -234,8 +243,7 @@ def rotation_vector_perturbation(j):
 # domain given the rotation vector perturbation
 def centrifugal_perturbation_coefficients(om):
     psi_2m = np.zeros([2,3])
-    psi_2m[0,1] = b**2*Om*np.sqrt((4*pi)/15.)*om[0]
-    psi_2m[1,1] = b**2*Om*np.sqrt((4*pi)/15.)*om[1]
+    psi_2m[:,1] = b**2*Om*np.sqrt((4*pi)/15.)*om
     return psi_2m
 
 
@@ -249,15 +257,15 @@ def centrifugal_perturbation_value(om,lat,lon):
     return psi
 
 ########################################################################
-# returns a vector lv such that (lv,om) is equal to the
+# returns a vector kk such that (kk,om) is equal to the
 # centrifugal potential perturbation at the given location
 def centrifugal_perturbation_vector(om,lat,lon):
-    lv = np.zeros(2)
+    kk = np.zeros(2)
     th = (90-lat)*pi/180
     ph = lon*pi/180
-    lv[0] = Om*b*b*np.cos(th)*np.sin(th)*np.cos(ph)
-    lv[0] = Om*b*b*np.cos(th)*np.sin(th)*np.sin(ph)
-    return lv
+    kk[0] = Om*b*b*np.cos(th)*np.sin(th)*np.cos(ph)
+    kk[0] = Om*b*b*np.cos(th)*np.sin(th)*np.sin(ph)
+    return kk
 
 ################################################
 # reads in and returns love numbers from a file
@@ -286,6 +294,13 @@ def generalised_love_numbers(L):
 
     
 
+
+#####################################################################
+# function to calculate uniform sea level rise from driect load
+def bathtub(C,zeta):
+    L = C.lmax
+    A = surface_integral(C)
+    return -surface_integral(zeta)/(rhow*A)
 
 
 #####################################################################
@@ -326,13 +341,13 @@ def fingerprint(C,zeta,rotation=True):
         
         # determine the response to the loading
         for l in range(L+1):
-            u_lm.coeffs[:,l,:]   =    h[l]*sigma_lm.coeffs[:,l,:]    
-            phi_lm.coeffs[:,l,:] =    k[l]*sigma_lm.coeffs[:,l,:]    
+            u_lm.coeffs[:,l,:]   =  h[l]*sigma_lm.coeffs[:,l,:]    
+            phi_lm.coeffs[:,l,:] =  k[l]*sigma_lm.coeffs[:,l,:]    
         
 
         # add in the centrifugal contribution
-        u_lm.coeffs[:,2,:]   =   u_lm.coeffs[:,2,:] + ht*psi_lm.coeffs[:,2,:]
-        phi_lm.coeffs[:,2,:] = phi_lm.coeffs[:,2,:] + kt*psi_lm.coeffs[:,2,:]
+        u_lm.coeffs[:,2,:]   +=  ht*psi_lm.coeffs[:,2,:]
+        phi_lm.coeffs[:,2,:] +=  kt*psi_lm.coeffs[:,2,:]
 
         # get the centrifugal potential perturbation
         if(rotation):
@@ -372,7 +387,7 @@ def fingerprint(C,zeta,rotation=True):
 
 #####################################################################
 # function to solve the fingerprint problem for a given direct load
-def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
+def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,kk,rotation=True):
 
     # get the maximum degree
     L = C.lmax
@@ -419,12 +434,12 @@ def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
 
 
         # add in the centrifugal contribution
-        u_lm.coeffs[:,2,:]   =   u_lm.coeffs[:,2,:] + ht*psi_lm.coeffs[:,2,:]
-        phi_lm.coeffs[:,2,:] = phi_lm.coeffs[:,2,:] + kt*psi_lm.coeffs[:,2,:]
+        u_lm.coeffs[:,2,:]   += ht*psi_lm.coeffs[:,2,:]
+        phi_lm.coeffs[:,2,:] +=  kt*psi_lm.coeffs[:,2,:]
 
         # get the centrifugal potential perturbation
         if(rotation):
-            j  = inertia_tensor_perturbation(phi_lm) - lv/Om
+            j  = inertia_tensor_perturbation(phi_lm) - kk
             om = rotation_vector_perturbation(j)
             psi_2m = centrifugal_perturbation_coefficients(om)
             psi_lm.coeffs[:,2,:3] = psi_2m
@@ -455,14 +470,11 @@ def generalised_fingerprint(C,zeta,zeta_u,zeta_phi,lv,rotation=True):
     return sl,u,phi,om,psi
 
 
-
-
-
 #####################################################################
+# returns a point load at a given geographic location with optional
+# inverse Laplacian smoothing
 def point_load(L,lats,lons,grid = 'GLQ',angle = 0.,w=[sentinel]):
-# function returns a point load at a given geographic location
-# Note that the result is defined on a unit sphere and so will
-# need to be normalised in other cases
+
 
     if(len(lats)!=len(lons)):
         raise SystemExit('lats and lons are different sizes!')
@@ -484,10 +496,10 @@ def point_load(L,lats,lons,grid = 'GLQ',angle = 0.,w=[sentinel]):
         
         for l in range(0,pl_lm.lmax+1):
             fac = np.exp(-l*(l+1)*t)
-            pl_lm.coeffs[0,l,0] = pl_lm.coeffs[0,l,0] + w[isource]*ylm[0,l,0]*fac
+            pl_lm.coeffs[0,l,0] +=  w[isource]*ylm[0,l,0]*fac
             for m in range(1,l+1):
-                pl_lm.coeffs[0,l,m] = pl_lm.coeffs[0,l,m] + w[isource]*ylm[0,l,m]*fac
-                pl_lm.coeffs[1,l,m] = pl_lm.coeffs[1,l,m] + w[isource]*ylm[1,l,m]*fac
+                pl_lm.coeffs[0,l,m] += w[isource]*ylm[0,l,m]*fac
+                pl_lm.coeffs[1,l,m] += w[isource]*ylm[1,l,m]*fac
 
 
     pl_lm = (1/b**2)*pl_lm
@@ -496,37 +508,109 @@ def point_load(L,lats,lons,grid = 'GLQ',angle = 0.,w=[sentinel]):
     return pl
 
 
-############################################################
-# transforms a function under the Sobolev mapping
-def sobolev_mapping(u,s,mu):   
-    u_lm = u.expand(normalization = 'ortho')
-    L = u_lm.lmax
-    for l in range(L+1):
-        fac = 1.0 + mu*mu*l*(l+1)
-        fac = fac**(-s)
-        u_lm.coeffs[:,l,:] = fac*u_lm.coeffs[:,l,:]
-    u = u_lm.expand(grid = 'GLQ')
-    return u
-    
 
-#############################################################
-# computes the Sobolev inner product. Note that default
-# values of s and mu given the special case of the L2 product
-def inner_product(u,v,s = 0., mu = 0.):
-    u_lm = u.expand(normalization = 'ortho')
-    v_lm = u.expand(normalization = 'ortho')
-    L = u_lm.lmax
-    p = 0.
-    for l in range(L+1):
-        fac = 1.0+mu*mu*l*(l+1)
-        fac = fac**s
-        p = p + fac*u_lm.coeffs[0,l,0]*v_lm.coeffs[0,l,0]
-        for m in range(1,l+1):
-            p = p + fac*u_lm.coeffs[0,l,m]*v_lm.coeffs[0,l,m]
-            p = p + fac*u_lm.coeffs[1,l,m]*v_lm.coeffs[1,l,m]            
-    return p*b*b
+#########################################################################
+# returns the vector -\int_{\partial M} [\mathbf{x} \times (\Bom \times
+# \mathbf{x})] \zeta_{\psi} \dd S needed to deal with psi measurements
+def rotation_vector_from_zeta_psi(zeta_psi):
+    zeta_psi_lm = zeta_psi.expand(normalization='ortho')
+    kk = np.zeros(2)
+    for i in range(2):
+        om = np.zeros(2)
+        om[i] = 1.
+        phi_2m = centrifugal_perturbation_coefficients(om)
+        kk[i] = g*np.sum(phi_2m[:,:3]*zeta_psi_lm.coeffs[:,2,:3])*b*b
+    return kk
+
+
+#########################################################################
+# returns the rotational load necessary to remove centrifugal
+# contribution associated with a given potential load
+def rotation_load_to_remove_psi(zeta_phi):
+    zeta_phi_lm = zeta_phi.expand(normalization='ortho')
+    kk = np.zeros(2)
+    for i in range(2):
+        om = np.zeros(2)
+        om[i] = 1.
+        phi_2m = centrifugal_perturbation_coefficients(om)
+        kk[i] = -np.sum(phi_2m[:,:3]*zeta_phi_lm.coeffs[:,2,:3])*b*b
+    return kk
         
-        
+##########################################################################
+# returns the adjoint loads for a sea level measurement at 
+def sea_level_load(L,lat,lon,grid = 'GLQ',angle = 1.):
+    lats = np.full((1),lat)
+    lons = np.full((1),lon)
+    zeta     = point_load(L,lats,lons,angle = angle,grid = grid)
+    zeta_u   = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_phi = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    kk       = np.zeros(2)
+    return zeta,zeta_u,zeta_phi,kk
+
+
+##########################################################################
+# returns the adjoint loads for a sea level measurement at 
+def displacement_load(L,lat,lon,grid = 'GLQ',angle = 1.):
+    lats = np.full((1),lat)
+    lons = np.full((1),lon)
+    zeta     = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_u   = (-1/g)*point_load(L,lats,lons,angle = angle,grid = grid)
+    zeta_phi = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    kk       = np.zeros(2)
+    return zeta,zeta_u,zeta_phi,kk
+
+
+##########################################################################
+# returns the adjoint loads for a sea level measurement at 
+def potential_load(L,lat,lon,grid = 'GLQ',angle = 1.,remove_psi = True):
+    lats = np.full((1),lat)
+    lons = np.full((1),lon)    
+    zeta     = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_u   = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_phi = (-1/g)*point_load(L,lats,lons,angle = angle,grid = grid)
+    if(remove_psi):
+        kk = -rotation_vector_from_zeta_psi(zeta_phi)/g
+    else:
+        kk = np.zeros(2)
+    return zeta,zeta_u,zeta_phi,kk
+
+    
+##########################################################################
+# returns the adjoint loads for a measurement of the (l,m)th real spherical
+# harmonic coefficient of the gravitational potential perturbation
+def potential_coefficient_load(L,l,m,grid = 'GLQ',remove_psi = True):
+    zeta   = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_u = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_phi_lm =  pysh.SHCoeffs.from_zeros(lmax=L,normalization = 'ortho')
+    if(m >= 0):
+        zeta_phi_lm.coeffs[0,l,m]  = -g/b**2
+    else:
+        zeta_phi_lm.coeffs[1,l,-m] = -g/b**2
+    zeta_phi = zeta_phi_lm.expand(grid = grid)
+    if(remove_psi):
+        kk = -rotation_vector_from_zeta_psi(zeta_phi)/g
+    else:
+        kk = np.zeros(2)
+    return zeta,zeta_u,zeta_phi,kk
+
+
+
+############################################################################
+# returns the adjoint loads corresponding to a sea surface height measurement
+# at a given latitude and longitude
+def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',remove_psi = True):
+    L = sl0.lmax
+    zeta     = altimetry_mask(sl0,ice0,lat1,lat2,val = 0.0)
+    zeta_u   = zeta.copy()
+    zeta_phi = pysh.SHGrid.from_zeros(lmax = L,grid=grid)
+    if(remove_psi):
+        kk = rotation_vector_from_zeta_psi(zeta)/g
+    else:
+        kk = np.zeros(2)
+    return zeta,zeta_u,zeta_phi,kk
+
+
+
 ##############################################################
 # sets Laplacian-type covariance
 def laplace_covariance(L,std = 1.,s = 0.,mu = 0.):
@@ -535,7 +619,7 @@ def laplace_covariance(L,std = 1.,s = 0.,mu = 0.):
     for l in range(L+1):
         fac = 1.+mu*mu*l*(l+1)
         fac = fac**(-s)
-        norm = norm + (2*l+1)*fac/(4*pi)
+        norm += (2*l+1)*fac/(4*pi)
         Q[l] = fac
     Q = std*std*Q/norm
     return Q
@@ -568,8 +652,8 @@ def correlation_function(Q,lat0 = 0.,lon0 = 0.):
         fac = Q[l]
         cf_lm.coeffs[0,l,0] = cf_lm.coeffs[0,l,0] + ylm[0,l,0]*fac
         for m in range(1,l+1):
-            cf_lm.coeffs[0,l,m] = cf_lm.coeffs[0,l,m] + ylm[0,l,m]*fac
-            cf_lm.coeffs[1,l,m] = cf_lm.coeffs[1,l,m] + ylm[1,l,m]*fac
+            cf_lm.coeffs[0,l,m] += ylm[0,l,m]*fac
+            cf_lm.coeffs[1,l,m] += ylm[1,l,m]*fac
     cf = cf_lm.expand(grid = 'GLQ')
     return cf
 
