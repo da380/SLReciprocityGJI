@@ -519,22 +519,10 @@ def rotation_vector_from_zeta_psi(zeta_psi):
         om = np.zeros(2)
         om[i] = 1.
         phi_2m = centrifugal_perturbation_coefficients(om)
-        kk[i] = g*np.sum(phi_2m[:,:3]*zeta_psi_lm.coeffs[:,2,:3])*b*b
+        kk[i] = np.sum(phi_2m[:,:3]*zeta_psi_lm.coeffs[:,2,:3])*b*b
     return kk
 
 
-#########################################################################
-# returns the rotational load necessary to remove centrifugal
-# contribution associated with a given potential load
-def rotation_load_to_remove_psi(zeta_phi):
-    zeta_phi_lm = zeta_phi.expand(normalization='ortho')
-    kk = np.zeros(2)
-    for i in range(2):
-        om = np.zeros(2)
-        om[i] = 1.
-        phi_2m = centrifugal_perturbation_coefficients(om)
-        kk[i] = -np.sum(phi_2m[:,:3]*zeta_phi_lm.coeffs[:,2,:3])*b*b
-    return kk
         
 ##########################################################################
 # returns the adjoint loads for a sea level measurement at 
@@ -553,26 +541,12 @@ def sea_level_load(L,lat,lon,grid = 'GLQ',angle = 1.):
 def displacement_load(L,lat,lon,grid = 'GLQ',angle = 1.):
     lats = np.full((1),lat)
     lons = np.full((1),lon)
-    zeta     = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
-    zeta_u   = (-1/g)*point_load(L,lats,lons,angle = angle,grid = grid)
-    zeta_phi = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta     =  pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_u   = -1*point_load(L,lats,lons,angle = angle,grid = grid)
+    zeta_phi =  pysh.SHGrid.from_zeros(lmax=L,grid = grid)
     kk       = np.zeros(2)
     return zeta,zeta_u,zeta_phi,kk
 
-
-##########################################################################
-# returns the adjoint loads for a sea level measurement at 
-def potential_load(L,lat,lon,grid = 'GLQ',angle = 1.,remove_psi = True):
-    lats = np.full((1),lat)
-    lons = np.full((1),lon)    
-    zeta     = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
-    zeta_u   = pysh.SHGrid.from_zeros(lmax=L,grid = grid)
-    zeta_phi = (-1/g)*point_load(L,lats,lons,angle = angle,grid = grid)
-    if(remove_psi):
-        kk = -rotation_vector_from_zeta_psi(zeta_phi)/g
-    else:
-        kk = np.zeros(2)
-    return zeta,zeta_u,zeta_phi,kk
 
     
 ##########################################################################
@@ -588,7 +562,7 @@ def potential_coefficient_load(L,l,m,grid = 'GLQ',remove_psi = True):
         zeta_phi_lm.coeffs[1,l,-m] = -g/b**2
     zeta_phi = zeta_phi_lm.expand(grid = grid)
     if(remove_psi):
-        kk = -rotation_vector_from_zeta_psi(zeta_phi)/g
+        kk = -rotation_vector_from_zeta_psi(zeta_phi)
     else:
         kk = np.zeros(2)
     return zeta,zeta_u,zeta_phi,kk
@@ -600,11 +574,13 @@ def potential_coefficient_load(L,l,m,grid = 'GLQ',remove_psi = True):
 # at a given latitude and longitude
 def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',remove_psi = True):
     L = sl0.lmax
-    zeta     = altimetry_mask(sl0,ice0,lat1,lat2,val = 0.0)
-    zeta_u   = zeta.copy()
+    zeta = altimetry_mask(sl0,ice0,lat1,lat2,val = 0.0)
+    A = surface_integral(zeta)
+    zeta = zeta/A
+    zeta_u   = -1*zeta.copy()
     zeta_phi = pysh.SHGrid.from_zeros(lmax = L,grid=grid)
     if(remove_psi):
-        kk = rotation_vector_from_zeta_psi(zeta)/g
+        kk = -rotation_vector_from_zeta_psi(zeta)
     else:
         kk = np.zeros(2)
     return zeta,zeta_u,zeta_phi,kk
