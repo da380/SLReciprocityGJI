@@ -34,7 +34,7 @@ ep = 1.e-6             # tolerance for iterations
 ######################################################################
 # function to plot geographic data on GL grid. If complex data is
 # input, only the real part is plotted
-def plot(fun,cstring='RdBu',contour = False, ncont = 6):
+def plot(fun,cstring='RdBu',contour = False, ncont = 6,title = '',marker = []):
     ax = plt.axes(projection=ccrs.PlateCarree())
     if(contour):
         plt.contourf(fun.lons()-180,fun.lats(),fun.data,cmap=cstring,levels = ncont)
@@ -42,6 +42,11 @@ def plot(fun,cstring='RdBu',contour = False, ncont = 6):
         plt.pcolormesh(fun.lons()-180,fun.lats(),fun.data,shading = 'gouraud',cmap=cstring)
     ax.coastlines()
     plt.colorbar()
+    plt.title(title)
+    if(len(marker) == 2):
+        lat = marker[0]
+        lon = marker[1]
+        plt.plot([lon],[lat],marker='o', markersize=5, color="red")
     plt.show()
     return
 
@@ -106,6 +111,12 @@ def get_sl_ice_data(L):
         
     return sl,ice               
 
+########################################################
+# returns thw value of a field at a given point via
+# spherical harmonic expansion
+def point_evaluation(fun,lat,lon):
+    fun_lm = fun.expand()
+    return pysh.expand.MakeGridPoint(fun_lm.coeffs,lat,lon+180)
 
 
 ###################################################################
