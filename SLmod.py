@@ -27,7 +27,7 @@ Me = 5.974e24            # mass of the Earth
 
 ##########################################################
 # set some options
-ep = 1.e-6             # tolerance for iterations
+ep = 1.e-8             # tolerance for iterations
 ##########################################################
 
 
