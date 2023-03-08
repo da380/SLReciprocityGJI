@@ -33,7 +33,7 @@ ep = 1.e-8             # tolerance for iterations
 
 ######################################################################
 # function to plot geographic data on GL grid.
-def plot(fun,cstring='RdBu',contour = False, ncont = 6,title = '',marker = []):
+def plot(fun,cstring='RdBu',contour = False, ncont = 6,title = '',marker = [],clim = []):
     ax = plt.axes(projection=ccrs.PlateCarree())
     if(contour):
         plt.contourf(fun.lons()-180,fun.lats(),fun.data,cmap=cstring,levels = ncont)
@@ -46,6 +46,8 @@ def plot(fun,cstring='RdBu',contour = False, ncont = 6,title = '',marker = []):
         lat = marker[0]
         lon = marker[1]
         plt.plot([lon],[lat],marker='o', markersize=5, color="red")
+    if(len(clim) == 2):
+        plt.clim(clim)
     plt.show()
     return
 
@@ -644,4 +646,34 @@ def correlation_function(Q,lat0 = 0.,lon0 = 0.):
     return cf
 
 
+###################################################################
+# returns a random ice model derived from a zero-mean rotationally
+# invariant Gassian random field with the prescribed covariance
 
+def random_ice_model(sl0,ice0,Q):
+    return random_field(Q)*ice_mask(sl0,ice0,val = 0.)
+
+###################################################################
+# returns a random ocean model derived from a zero-mean rotationally
+# invariant Gassian random field with the prescribed covariance
+# note that the mean of the field over the oceans is set equal to
+# zero in accordance with conservation of mass
+def random_ocean_model(sl0,ice0,Q):
+    C = ocean_function(sl0,ice0)
+    rf = random_field(Q)*C
+    rf -= C*surface_integral(rf)/surface_integral(C)
+    return rf
+    
+
+####################################################
+# returns the action of the covariance operator, Q,
+# for a rotationally invariant Gaussian random field
+# on an input function
+
+def covariance_action(Q,fun):
+    grid = fun.grid
+    L = fun.lmax
+    fun_lm = fun.expand(normalization = 'ortho')
+    for l in range(L+1):
+        fun_lm.coeffs[:,l,:] *= Q[l]
+    return fun_lm.expand(grid = grid)
