@@ -197,6 +197,36 @@ def ice_mask(sl0,ice0,val = np.nan):
     return mask
 
 
+#############################################################
+# returns function equal to 1 where over antarctica and val
+# elsewhere
+def antarctica_mask(sl0,ice0,val = np.nan):
+    mask = sl0.copy()
+    for ilat,lat in enumerate(mask.lats()):
+        for ilon,lon in enumerate(mask.lons()):            
+            icel = ice0.data[ilat,ilon]            
+            if(icel > 0. and lat < 0.): 
+                mask.data[ilat,ilon] = 1.
+            else:
+                mask.data[ilat,ilon] = val
+    return mask
+
+
+#############################################################
+# returns function equal to 1 where over antarctica and val
+# elsewhere
+def greenland_mask(sl0,ice0,val = np.nan):
+    mask = sl0.copy()
+    for ilat,lat in enumerate(mask.lats()):
+        for ilon,lon in enumerate(mask.lons()):            
+            icel = ice0.data[ilat,ilon]            
+            if(icel > 0. and lat > 0. and lon > 110): 
+                mask.data[ilat,ilon] = 1.
+            else:
+                mask.data[ilat,ilon] = val
+    return mask
+
+
 # returns function equal to 1 in oceans for lat in [lat1,lat2]
 # and equal to val elsewhere
 def altimetry_mask(sl0,ice0,lat1 = -66., lat2 = 66.,val = np.nan):
@@ -598,6 +628,68 @@ def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',remove_psi = T
     return zeta,zeta_u,zeta_phi,kk
 
 
+############################################################################
+# returns the load average corresponding to the averaging function, w,
+# following the method of Wahr et al. (1998)
+def GRACE_average_measurement(phi,w,LT = 0):
+    L = phi.lmax
+    if(LT == 0):
+        LT = L
+    _,k,_,_ = love_numbers(L)
+    sigma_lm = phi.expand(normalization = 'ortho')
+    for l in range(L+1):
+        if(l >= 2 and l <= LT):
+            sigma_lm.coeffs[:,l,:] *= 1./k[l]
+        else:
+            sigma_lm.coeffs[:,l,:] = 0.            
+    sigma = sigma_lm.expand(grid='GLQ')
+    return surface_integral(w*sigma)
+
+
+############################################################################
+# returns the adjoint loads corresponding to a GRACE load average defined
+# with respec to the input function w. The truncation degree for the
+# average can be input as an optional parameter
+def GRACE_average_load(w,LT = 0):
+    L = w.lmax
+    if(LT  == 0):
+        LT = L
+    zeta   = pysh.SHGrid.from_zeros(lmax = L,grid='GLQ')
+    zeta_u = pysh.SHGrid.from_zeros(lmax = L,grid='GLQ')
+    _,k,_,_ = love_numbers(L)
+    w_lm = w.expand(normalization = 'ortho')    
+    for l in range(L+1):
+        if(l >= 2 and l <= LT):
+            w_lm.coeffs[:,l,:] *= -g/k[l]
+        else:
+            w_lm.coeffs[:,l,:] = 0.            
+    zeta_phi = w_lm.expand(grid='GLQ')
+    kk = -rotation_vector_from_zeta_psi(zeta_phi)
+    return zeta,zeta_u,zeta_phi,kk
+
+
+####################################################
+# returns the averaging function of Jekeli (1981)
+# as discussed in Wahr et al (1998). Note that
+# the averaging length, r, is input in km
+def circular_averaging_function(L,r,lat0,lon0):
+    th0 = (90-lat0)*pi/180
+    ph0 = (lon0-180)*pi/180
+    c = np.log(2)/(1-np.cos(1000*r/b))
+    fac = 2*pi*(1-np.exp(-2*c))
+    fac = c/(b*b*fac)
+    w = pysh.SHGrid.from_zeros(lmax=L,grid = 'GLQ')
+    for ilat,lat in enumerate(w.lats()):
+        th = (90-lat)*pi/180
+        fac1 = np.cos(th)*np.cos(th0)
+        fac2 = np.sin(th)*np.sin(th0)
+        for ilon,lon in enumerate(w.lons()):
+            ph = lon*pi/180
+            calpha = fac1 + fac2*np.cos(ph-ph0)
+            w.data[ilat,ilon] = fac*np.exp(-c*(1-calpha))
+    return w
+
+
 
 ##############################################################
 # sets Laplacian-type covariance
@@ -656,7 +748,7 @@ def random_ice_model(sl0,ice0,Q):
 ###################################################################
 # returns a random ocean model derived from a zero-mean rotationally
 # invariant Gassian random field with the prescribed covariance
-# note that the mean of the field over the oceans is set equal to
+# note that the integral of the field over the oceans is set equal to
 # zero in accordance with conservation of mass
 def random_ocean_model(sl0,ice0,Q):
     C = ocean_function(sl0,ice0)
@@ -669,7 +761,6 @@ def random_ocean_model(sl0,ice0,Q):
 # returns the action of the covariance operator, Q,
 # for a rotationally invariant Gaussian random field
 # on an input function
-
 def covariance_action(Q,fun):
     grid = fun.grid
     L = fun.lmax
@@ -677,3 +768,7 @@ def covariance_action(Q,fun):
     for l in range(L+1):
         fun_lm.coeffs[:,l,:] *= Q[l]
     return fun_lm.expand(grid = grid)
+
+
+
+
