@@ -346,6 +346,20 @@ def bathtub(C,zeta):
 
 
 #####################################################################
+# returns the solid earth deformation associated with a given load
+def loading_response(sigma):
+    L = sigma.lmax
+    h,k,ht,kt = love_numbers(L)
+    u_lm   = sigma.expand(normalization = 'ortho')
+    phi_lm = u_lm.copy()
+    for l in range(L+1):
+        u_lm.coeffs[:,l,:]   *= h[l]
+        phi_lm.coeffs[:,l,:] *= k[l]
+    u   = u_lm.expand(grid = 'GLQ')
+    phi = phi_lm.expand(grid = 'GLQ')    
+    return u,phi
+
+#####################################################################
 # function to solve the fingerprint problem for a given direct load
 def fingerprint(C,zeta,rotation=True):
 
@@ -687,6 +701,9 @@ def circular_averaging_function(L,r,lat0,lon0):
             ph = lon*pi/180
             calpha = fac1 + fac2*np.cos(ph-ph0)
             w.data[ilat,ilon] = fac*np.exp(-c*(1-calpha))
+    w_lm = w.expand()
+    w_lm.coeffs[:,:2,:] = 0.
+    w = w_lm.expand(grid = 'GLQ')
     return w
 
 
