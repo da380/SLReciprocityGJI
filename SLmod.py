@@ -39,8 +39,8 @@ def plot(fun,cstring='RdBu',contour = False, ncont = 6,title = '',marker = [],cl
         plt.contourf(fun.lons()-180,fun.lats(),fun.data,cmap=cstring,levels = ncont)
     else:
         plt.pcolormesh(fun.lons()-180,fun.lats(),fun.data,shading = 'gouraud',cmap=cstring)
-    ax.coastlines()
     plt.colorbar()
+    ax.coastlines()
 #    plt.title(title)
     if(len(marker) == 2):
         lat = marker[0]
@@ -48,8 +48,9 @@ def plot(fun,cstring='RdBu',contour = False, ncont = 6,title = '',marker = [],cl
         plt.plot([lon],[lat],marker='o', markersize=5, color="red")
     if(len(clim) == 2):
         plt.clim(clim)
+    vmin, vmax = plt.gci().get_clim()
     plt.show()
-    return
+    return 
 
 
 ######################################################################
@@ -229,14 +230,17 @@ def greenland_mask(sl0,ice0,val = np.nan):
 
 # returns function equal to 1 in oceans for lat in [lat1,lat2]
 # and equal to val elsewhere
-def altimetry_mask(sl0,ice0,lat1 = -66., lat2 = 66.,val = np.nan):
+def altimetry_mask(sl0,ice0,lat1 = -66., lat2 = 66.,cosine = False,val = np.nan):
     mask = sl0.copy()
     for ilat,lat in enumerate(mask.lats()):
         for ilon,lon in enumerate(mask.lons()):
             sll  = sl0.data[ilat,ilon] 
             icel = ice0.data[ilat,ilon]            
-            if(rhow*sll - rhoi*icel >= 0. and icel == 0 and lat >= lat1 and lat <= lat2): 
-                mask.data[ilat,ilon] = 1.
+            if(rhow*sll - rhoi*icel >= 0. and icel == 0 and lat >= lat1 and lat <= lat2):
+                if(cosine):
+                    mask.data[ilat,ilon] = np.cos(lat*pi/180)
+                else:
+                    mask.data[ilat,ilon] = 1.0
             else:
                 mask.data[ilat,ilon] = val
     return mask
@@ -628,9 +632,9 @@ def potential_coefficient_load(L,l,m,grid = 'GLQ',remove_psi = True):
 ############################################################################
 # returns the adjoint loads corresponding to a sea surface height measurement
 # at a given latitude and longitude
-def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',remove_psi = True):
+def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',cosine = False,remove_psi = True):
     L = sl0.lmax
-    zeta = altimetry_mask(sl0,ice0,lat1,lat2,val = 0.0)
+    zeta = altimetry_mask(sl0,ice0,lat1,lat2,cosine = cosine,val = 0.0)
     A = surface_integral(zeta)
     zeta = zeta/A
     zeta_u   = -1*zeta.copy()
@@ -701,21 +705,35 @@ def circular_averaging_function(L,r,lat0,lon0):
             ph = lon*pi/180
             calpha = fac1 + fac2*np.cos(ph-ph0)
             w.data[ilat,ilon] = fac*np.exp(-c*(1-calpha))
-    w_lm = w.expand()
-    w_lm.coeffs[:,:2,:] = 0.
-    w = w_lm.expand(grid = 'GLQ')
+#    w_lm = w.expand()
+#    w_lm.coeffs[:,:2,:] = 0.
+#    w = w_lm.expand(grid = 'GLQ')
     return w
 
 
 
 ##############################################################
-# sets Laplacian-type covariance
-def laplace_covariance(L,std = 1.,s = 0.,mu = 0.):
+# sets Sobolev type covariance
+def sobolev_covariance(L,std = 1.,s = 0.,mu = 0.):
     Q = np.zeros(L+1)
     norm = 0.
     for l in range(L+1):
         fac = 1.+mu*mu*l*(l+1)
         fac = fac**(-s)
+        norm += (2*l+1)*fac/(4*pi)
+        Q[l] = fac
+    Q = b*b*std*std*Q/norm
+    return Q
+
+
+##############################################################
+# sets heat kernel type covariance
+def heat_covariance(L,std = 1.,mu = 0.):
+    Q = np.zeros(L+1)
+    norm = 0.
+    for l in range(L+1):
+        fac = -l*(l+1)*mu*mu
+        fac = np.exp(fac)
         norm += (2*l+1)*fac/(4*pi)
         Q[l] = fac
     Q = b*b*std*std*Q/norm
@@ -763,29 +781,27 @@ def random_ice_model(sl0,ice0,Q):
     return random_field(Q)*ice_mask(sl0,ice0,val = 0.)
 
 ###################################################################
-# returns a random ocean model derived from a zero-mean rotationally
+# returns a random ocean surface mass from a zero-mean rotationally
 # invariant Gassian random field with the prescribed covariance
 # note that the integral of the field over the oceans is set equal to
 # zero in accordance with conservation of mass
-def random_ocean_model(sl0,ice0,Q):
-    C = ocean_function(sl0,ice0)
-    rf = random_field(Q)*C
-    rf -= C*surface_integral(rf)/surface_integral(C)
-    return rf
+def random_ocean_load(C,Q):
+    zeta = rhow*random_field(Q)*C
+    zeta -= C*surface_integral(zeta)/surface_integral(C)
+    return zeta
     
 
 ####################################################
 # returns the action of the covariance operator, Q,
 # for a rotationally invariant Gaussian random field
 # on an input function
-def covariance_action(Q,fun):
+def apply_covariance(Q,fun):
     grid = fun.grid
     L = fun.lmax
     fun_lm = fun.expand(normalization = 'ortho')
     for l in range(L+1):
         fun_lm.coeffs[:,l,:] *= Q[l]
     return fun_lm.expand(grid = grid)
-
 
 
 
