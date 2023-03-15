@@ -33,15 +33,15 @@ ep = 1.e-8             # tolerance for iterations
 
 ######################################################################
 # function to plot geographic data on GL grid.
-def plot(fun,cstring='RdBu',contour = False, ncont = 6,title = '',marker = [],clim = []):
+def plot(fun,cstring='RdBu',contour = False, ncont = 6,label = '',marker = [],clim = []):
     ax = plt.axes(projection=ccrs.PlateCarree())
     if(contour):
         plt.contourf(fun.lons()-180,fun.lats(),fun.data,cmap=cstring,levels = ncont)
     else:
         plt.pcolormesh(fun.lons()-180,fun.lats(),fun.data,shading = 'gouraud',cmap=cstring)
-    plt.colorbar()
+    cbar = plt.colorbar()
     ax.coastlines()
-#    plt.title(title)
+    cbar.set_label(label,labelpad = 10)
     if(len(marker) == 2):
         lat = marker[0]
         lon = marker[1]
@@ -230,15 +230,16 @@ def greenland_mask(sl0,ice0,val = np.nan):
 
 # returns function equal to 1 in oceans for lat in [lat1,lat2]
 # and equal to val elsewhere
-def altimetry_mask(sl0,ice0,lat1 = -66., lat2 = 66.,cosine = False,val = np.nan):
+def altimetry_mask(sl0,ice0,lat1 = -66., lat2 = 66.,taper = False,val = np.nan):
     mask = sl0.copy()
     for ilat,lat in enumerate(mask.lats()):
         for ilon,lon in enumerate(mask.lons()):
             sll  = sl0.data[ilat,ilon] 
             icel = ice0.data[ilat,ilon]            
             if(rhow*sll - rhoi*icel >= 0. and icel == 0 and lat >= lat1 and lat <= lat2):
-                if(cosine):
-                    mask.data[ilat,ilon] = np.cos(lat*pi/180)
+                if(taper):
+                    fac = pi*(lat-lat2)/(lat2-lat1)
+                    mask.data[ilat,ilon] = np.sin(fac)
                 else:
                     mask.data[ilat,ilon] = 1.0
             else:
@@ -632,9 +633,9 @@ def potential_coefficient_load(L,l,m,grid = 'GLQ',remove_psi = True):
 ############################################################################
 # returns the adjoint loads corresponding to a sea surface height measurement
 # at a given latitude and longitude
-def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',cosine = False,remove_psi = True):
+def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',taper = False,remove_psi = True):
     L = sl0.lmax
-    zeta = altimetry_mask(sl0,ice0,lat1,lat2,cosine = cosine,val = 0.0)
+    zeta = altimetry_mask(sl0,ice0,lat1,lat2,taper = taper,val = 0.0)
     A = surface_integral(zeta)
     zeta = zeta/A
     zeta_u   = -1*zeta.copy()
@@ -690,7 +691,7 @@ def GRACE_average_load(w,LT = 0):
 # returns the averaging function of Jekeli (1981)
 # as discussed in Wahr et al (1998). Note that
 # the averaging length, r, is input in km
-def circular_averaging_function(L,r,lat0,lon0):
+def gaussian_averaging_function(L,r,lat0,lon0):
     th0 = (90-lat0)*pi/180
     ph0 = (lon0-180)*pi/180
     c = np.log(2)/(1-np.cos(1000*r/b))
@@ -705,9 +706,6 @@ def circular_averaging_function(L,r,lat0,lon0):
             ph = lon*pi/180
             calpha = fac1 + fac2*np.cos(ph-ph0)
             w.data[ilat,ilon] = fac*np.exp(-c*(1-calpha))
-#    w_lm = w.expand()
-#    w_lm.coeffs[:,:2,:] = 0.
-#    w = w_lm.expand(grid = 'GLQ')
     return w
 
 
