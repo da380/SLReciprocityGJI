@@ -691,7 +691,7 @@ def GRACE_average_load(w,LT = 0):
 # returns the averaging function of Jekeli (1981)
 # as discussed in Wahr et al (1998). Note that
 # the averaging length, r, is input in km
-def gaussian_averaging_function(L,r,lat0,lon0):
+def gaussian_averaging_function(L,r,lat0,lon0,cut = False):
     th0 = (90-lat0)*pi/180
     ph0 = (lon0-180)*pi/180
     c = np.log(2)/(1-np.cos(1000*r/b))
@@ -706,6 +706,10 @@ def gaussian_averaging_function(L,r,lat0,lon0):
             ph = lon*pi/180
             calpha = fac1 + fac2*np.cos(ph-ph0)
             w.data[ilat,ilon] = fac*np.exp(-c*(1-calpha))
+    if(cut):
+        w_lm = w.expand()
+        w_lm.coeffs[:,:2,:]  =0.
+        w = w_lm.expand(grid='GLQ')
     return w
 
 
