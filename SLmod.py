@@ -230,7 +230,7 @@ def greenland_mask(sl0,ice0,val = np.nan):
 
 # returns function equal to 1 in oceans for lat in [lat1,lat2]
 # and equal to val elsewhere
-def altimetry_mask(sl0,ice0,lat1 = -66., lat2 = 66.,taper = False,val = np.nan):
+def altimetery_mask(sl0,ice0,lat1 = -66., lat2 = 66.,taper = False,val = np.nan):
     mask = sl0.copy()
     for ilat,lat in enumerate(mask.lats()):
         for ilon,lon in enumerate(mask.lons()):
@@ -630,12 +630,12 @@ def potential_coefficient_load(L,l,m,grid = 'GLQ',remove_psi = True):
 
 
 
+
 ############################################################################
-# returns the adjoint loads corresponding to a sea surface height measurement
-# at a given latitude and longitude
-def sea_altimetry_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',taper = False,remove_psi = True):
+# returns the adjoint loads corresponding an altimetery estimate
+def sea_altimetery_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',taper = False,remove_psi = True):
     L = sl0.lmax
-    zeta = altimetry_mask(sl0,ice0,lat1,lat2,taper = taper,val = 0.0)
+    zeta = altimetery_mask(sl0,ice0,lat1,lat2,taper = taper,val = 0.0)
     A = surface_integral(zeta)
     zeta = zeta/A
     zeta_u   = -1*zeta.copy()
