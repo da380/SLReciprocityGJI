@@ -26,8 +26,8 @@ L=256
 sl0,ice0 = SL.get_sl_ice_data(L)
 
 # plot these fields
-SL.plot(sl0,label = 'sea level (m)',ofile = 'test.png')
-#SL.plot(ice0,label = 'ice thickness (m)')
+SL.plot(sl0,label = 'sea level (m)',ofile = 'sl0.png')
+SL.plot(ice0,label = 'ice thickness (m)',ofile = 'ice0.png')
 
 # compute the ocean function
 C = SL.ocean_function(sl0,ice0)
