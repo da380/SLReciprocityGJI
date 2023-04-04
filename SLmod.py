@@ -60,7 +60,8 @@ def plot(fun,**kwargs):
     if(ofile == None):
         plt.show()
     else:
-        plt.savefig(ofile)
+        plt.savefig(ofile,bbox_inches='tight')
+        plt.close()
     return 
 
 
