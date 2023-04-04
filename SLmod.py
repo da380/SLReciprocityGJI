@@ -7,8 +7,6 @@ from scipy import interpolate
 sentinel = object()
 
 
-if __name__ == "__main__":
-    pass
 
 
 #########################################################
@@ -33,7 +31,17 @@ ep = 1.e-8             # tolerance for iterations
 
 ######################################################################
 # function to plot geographic data on GL grid.
-def plot(fun,cstring='RdBu',contour = False, ncont = 6,label = '',marker = [],clim = []):
+def plot(fun,**kwargs):
+
+    # deal with optional arguments
+    cstring = kwargs.get('cmap','RdBu')
+    ofile = kwargs.get('ofile',None)
+    contour = kwargs.get('contour',False)
+    ncont = kwargs.get('ncont',6)
+    label = kwargs.get('label','')
+    marker = kwargs.get('marker',None)
+    clim = kwargs.get('clim',None)
+    
     ax = plt.axes(projection=ccrs.PlateCarree())
     if(contour):
         plt.contourf(fun.lons()-180,fun.lats(),fun.data,cmap=cstring,levels = ncont)
@@ -42,14 +50,17 @@ def plot(fun,cstring='RdBu',contour = False, ncont = 6,label = '',marker = [],cl
     cbar = plt.colorbar()
     ax.coastlines()
     cbar.set_label(label,labelpad = 10)
-    if(len(marker) == 2):
+    if(marker != None):
         lat = marker[0]
         lon = marker[1]
         plt.plot([lon],[lat],marker='o', markersize=5, color="red")
-    if(len(clim) == 2):
+    if(clim != None):
         plt.clim(clim)
     vmin, vmax = plt.gci().get_clim()
-    plt.show()
+    if(ofile == None):
+        plt.show()
+    else:
+        plt.savefig(ofile)
     return 
 
 
@@ -806,4 +817,5 @@ def apply_covariance(Q,fun):
     return fun_lm.expand(grid = grid)
 
 
-
+if __name__ == "__main__":
+    pass
