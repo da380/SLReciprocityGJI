@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyshtools as pysh
 import SLmod as SL
+import RFmod as RF
 from numpy import pi as pi
 
 #set plotting parameters
@@ -14,7 +15,8 @@ plt.rc('ytick', labelsize=18)
 font = {'size'   : 20}
 plt.rc('font', **font)
 plt.rcParams['figure.figsize'] = [16, 8]
-fpath = '/home/david/latex_reduced/slrec/figures/'
+fpath = '/home/david/latex/slrec_paper/figures/'
+
 
 
 
@@ -55,9 +57,9 @@ print('fraction of surface which is ocean = ',A/A_earth)
 use_random = False
 
 if(use_random):
-    Q = SL.sobolev_covariance(L,s = 2,mu = 0.2)
-    zeta_north = -rhoi*SL.greenland_mask(sl0,ice0,val = 0.)*SL.random_field(Q)
-    zeta_south = -rhoi*SL.antarctica_mask(sl0,ice0,val = 0.)*SL.random_field(Q)
+    Q = RF.sobolev_covariance(L,s = 2,mu = 0.2)
+    zeta_north = -rhoi*SL.greenland_mask(sl0,ice0,val = 0.)*RF.random_field(Q)
+    zeta_south = -rhoi*SL.antarctica_mask(sl0,ice0,val = 0.)*RF.random_field(Q)
 else:
     zeta_north = -rhoi*SL.zero_southern_hemisphere(ice0)
     zeta_south = -rhoi*SL.zero_northern_hemisphere(ice0)

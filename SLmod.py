@@ -2,8 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cartopy.crs as ccrs
 import pyshtools as pysh
+import RFmod as RF
 from numpy import pi as pi
-from scipy import interpolate 
+from scipy.interpolate import RegularGridInterpolator
 sentinel = object()
 
 
@@ -80,46 +81,44 @@ def get_sl_ice_data(L):
     nlon = int(dat[0,1])
     
     sld = np.zeros([nlat,nlon])
-    latd = np.zeros([nlat,nlon])
-    lond = np.zeros([nlat,nlon])
+    lat = np.zeros([nlat])
+    lon = np.zeros([nlon])
     icd = np.zeros([nlat,nlon])
 
-        
     k = 0
     for ilon in range(nlon):
         for ilat in range(nlat):
             k = k + 1
-            latd[ilat,ilon] =  dat[k,1]
-            lond[ilat,ilon] =  dat[k,0]+180.
+            lat[ilat] =  dat[k,1]
+            lon[ilon] =  dat[k,0]+180.
             icd[ilat,ilon]  =  dat[k,2]
             sld[ilat,ilon]  = -dat[k,3]
              
-    
-    # form the interpolating function for SL
-    fun = interpolate.interp2d(lond[0,:],latd[:,0],sld,kind='linear')
-    nlatgrid = sl.nlat
-    nlongrid = sl.nlon
-    lat = sl.lats()
-    lon = sl.lons()
-    
+            
+        
+    fun = RegularGridInterpolator((lat, lon), sld,method = 'linear',
+                                 bounds_error=False, fill_value=None)
+       
     # interpolate onto sl grid
-    for ilat in range(nlatgrid):
-        for ilon in range(nlongrid):
-            sl.data[ilat,ilon] = fun(lon[ilon],lat[ilat])
+    for ilat,llat in enumerate(sl.lats()):
+        for ilon,llon in enumerate(sl.lons()):
+            sl.data[ilat,ilon] = fun((llat,llon))
 
 
-    # form the interpolating function for ice
-    fun = interpolate.interp2d(lond[0,:],latd[:,0],icd,kind='linear')
-    
+    fun = RegularGridInterpolator((lat, lon), icd,method = 'linear',
+                                 bounds_error=False, fill_value=None)
+       
+    # interpolate onto sl grid
+    for ilat,llat in enumerate(ice.lats()):
+        for ilon,llon in enumerate(ice.lons()):
+            ice.data[ilat,ilon] = fun((llat,llon))
 
-    #interpolate onto ice grid
-    for ilat in range(nlatgrid):
-        for ilon in range(nlongrid):
-            ice.data[ilat,ilon] = fun(lon[ilon],lat[ilat])
+
+
             
     # correct sl where there is land-based ice
-    for ilat in range(nlatgrid):
-        for ilon in range(nlongrid):
+    for ilat,llat in enumerate(sl.lats()):
+        for ilon,llon in enumerate(sl.lons()):
             if(ice.data[ilat,ilon] > 0 and sl.data[ilat,ilon] < 0):
                 sl.data[ilat,ilon] = sl.data[ilat,ilon] + ice.data[ilat,ilon]
         
@@ -726,73 +725,12 @@ def gaussian_averaging_function(L,r,lat0,lon0,cut = False):
 
 
 
-##############################################################
-# sets Sobolev type covariance
-def sobolev_covariance(L,std = 1.,s = 0.,mu = 0.):
-    Q = np.zeros(L+1)
-    norm = 0.
-    for l in range(L+1):
-        fac = 1.+mu*mu*l*(l+1)
-        fac = fac**(-s)
-        norm += (2*l+1)*fac/(4*pi)
-        Q[l] = fac
-    Q = b*b*std*std*Q/norm
-    return Q
-
-
-##############################################################
-# sets heat kernel type covariance
-def heat_covariance(L,std = 1.,mu = 0.):
-    Q = np.zeros(L+1)
-    norm = 0.
-    for l in range(L+1):
-        fac = -l*(l+1)*mu*mu
-        fac = np.exp(fac)
-        norm += (2*l+1)*fac/(4*pi)
-        Q[l] = fac
-    Q = b*b*std*std*Q/norm
-    return Q
-
-###############################################################
-# generates random field with Laplacian like covariance
-def random_field(Q):
-    L = Q.size-1
-    fun_lm = pysh.SHCoeffs.from_zeros(lmax=L,normalization = 'ortho')
-    for l in range(L+1):
-        fac = np.sqrt(Q[l])/b
-        ranp = np.random.normal(size = l+1)
-        rann = np.random.normal(size = l+1)
-        fun_lm.coeffs[0,l,0] = fac*ranp[0]
-        for m in range(1,l+1):
-            fun_lm.coeffs[0,l,m] = fac*ranp[m]
-            fun_lm.coeffs[1,l,m] = fac*rann[m]
-    return fun_lm.expand(grid = 'GLQ')        
-
-################################################################
-# returns the two-point correlation function for a random field
-# given the covariance operator
-def correlation_function(Q,lat0 = 0.,lon0 = 0.):
-    L = Q.size-1    
-    ths = 90.- lat0
-    phs = lon0 + 180.               
-    cf_lm = pysh.SHCoeffs.from_zeros(lmax=L,normalization = 'ortho')               
-    ylm = pysh.expand.spharm(cf_lm.lmax,ths,phs,normalization = 'ortho')        
-    for l in range(L+1):
-        fac = Q[l]/(b*b)
-        cf_lm.coeffs[0,l,0] = cf_lm.coeffs[0,l,0] + ylm[0,l,0]*fac
-        for m in range(1,l+1):
-            cf_lm.coeffs[0,l,m] += ylm[0,l,m]*fac
-            cf_lm.coeffs[1,l,m] += ylm[1,l,m]*fac
-    cf = cf_lm.expand(grid = 'GLQ')
-    return cf
-
-
 ###################################################################
 # returns a random ice model derived from a zero-mean rotationally
 # invariant Gassian random field with the prescribed covariance
 
 def random_ice_model(sl0,ice0,Q):
-    return random_field(Q)*ice_mask(sl0,ice0,val = 0.)
+    return RF.random_field(Q,b)*ice_mask(sl0,ice0,val = 0.)
 
 ###################################################################
 # returns a random ocean surface mass from a zero-mean rotationally
@@ -800,22 +738,12 @@ def random_ice_model(sl0,ice0,Q):
 # note that the integral of the field over the oceans is set equal to
 # zero in accordance with conservation of mass
 def random_ocean_load(C,Q):
-    zeta = rhow*random_field(Q)*C
+    zeta = rhow*RF.random_field(Q)*C
     zeta -= C*surface_integral(zeta)/surface_integral(C)
     return zeta
     
 
-####################################################
-# returns the action of the covariance operator, Q,
-# for a rotationally invariant Gaussian random field
-# on an input function
-def apply_covariance(Q,fun):
-    grid = fun.grid
-    L = fun.lmax
-    fun_lm = fun.expand(normalization = 'ortho')
-    for l in range(L+1):
-        fun_lm.coeffs[:,l,:] *= Q[l]
-    return fun_lm.expand(grid = grid)
+
 
 
 if __name__ == "__main__":
