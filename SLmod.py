@@ -121,7 +121,23 @@ def get_sl_ice_data(L):
         for ilon,llon in enumerate(sl.lons()):
             if(ice.data[ilat,ilon] > 0 and sl.data[ilat,ilon] < 0):
                 sl.data[ilat,ilon] = sl.data[ilat,ilon] + ice.data[ilat,ilon]
-        
+
+
+    # remove Alaskan glaciers
+    lat_G = 58.0
+    lon_G = -136.
+    th_G = (90-lat_G)*pi/180
+    ph_G= (180+lon_G)*pi/180
+    delta_G = 15*pi/180
+    for ilat,lat in enumerate(sl.lats()):
+        for ilon,lon in enumerate(sl.lons()):
+            th = (90-lat)*pi/180
+            ph = lon*pi/180            
+            delta = np.cos(th)*np.cos(th_G) + np.sin(th)*np.sin(th_G)*np.cos(ph-ph_G)
+            delta = np.arccos(delta)
+            if(delta < delta_G):
+                ice.data[ilat,ilon] = 0.0
+                
     return sl,ice               
 
 ########################################################
@@ -152,44 +168,70 @@ def ocean_integral(C,fun):
 ###################################################################
 # function that returns the ocean function and ocean area
 def ocean_function(sl0,ice0):
-    C = sl0.copy()
-    for ilat in range(C.nlat):
-        for ilon in range(C.nlon):            
+
+    # data for Caspian sea
+    lat_C = 42.2
+    lon_C = 50.7
+    th_C = (90-lat_C)*pi/180
+    ph_C= (180+lon_C)*pi/180
+    delta_C = 7.5*pi/180
+
+    # data for Lake Eyre
+    lat_E = -29.2
+    lon_E = 137.3
+    th_E = (90-lat_E)*pi/180
+    ph_E= (180+lon_E)*pi/180
+    delta_E = 2.0*pi/180
+        
+    C = sl0.copy()        
+    for ilat,lat in enumerate(C.lats()):
+        for ilon,lon in enumerate(C.lons()):            
             sll  = sl0.data[ilat,ilon] 
             icel = ice0.data[ilat,ilon]            
             if(rhow*sll - rhoi*icel >= 0.): 
                 C.data[ilat,ilon] = 1.
             else:
                 C.data[ilat,ilon] = 0.
+
+            # remove the Caspian sea
+            th = (90-lat)*pi/180
+            ph = lon*pi/180
+            delta = np.cos(th)*np.cos(th_C) + np.sin(th)*np.sin(th_C)*np.cos(ph-ph_C)
+            delta = np.arccos(delta)
+            if(delta < delta_C):
+                C.data[ilat,ilon] = 0.0
+                
+            # remove the Lake Eyre
+            delta = np.cos(th)*np.cos(th_E) + np.sin(th)*np.sin(th_E)*np.cos(ph-ph_E)
+            delta = np.arccos(delta)
+            if(delta < delta_E):
+                C.data[ilat,ilon] = 0.0
+
+                
     return C
 
 
 #############################################################
 # returns function equal to 1 in oceans and val on land
 def ocean_mask(sl0,ice0,val = np.nan):
-    mask = sl0.copy()
+    mask = ocean_function(sl0,ice0)
     for ilat in range(mask.nlat):
         for ilon in range(mask.nlon):            
-            sll  = sl0.data[ilat,ilon] 
-            icel = ice0.data[ilat,ilon]            
-            if(rhow*sll - rhoi*icel >= 0.): 
-                mask.data[ilat,ilon] = 1.
-            else:
+            if(mask.data[ilat,ilon] == 0.0): 
                 mask.data[ilat,ilon] = val
     return mask
 
 #############################################################
 # returns function equal to 1 on land and val in oceans
 def land_mask(sl0,ice0,val = np.nan):
-    mask = sl0.copy()
+    mask = ocean_function(sl0,ice0)
     for ilat in range(mask.nlat):
         for ilon in range(mask.nlon):            
-            sll  = sl0.data[ilat,ilon] 
-            icel = ice0.data[ilat,ilon]            
-            if(rhow*sll - rhoi*icel >= 0.): 
+            if(mask.data[ilat,ilon] == 1.0): 
                 mask.data[ilat,ilon] = val
             else:
-                mask.data[ilat,ilon] = 1.
+                mask.data[ilat,ilon] = 1.0
+            
     return mask
 
 
@@ -197,15 +239,13 @@ def land_mask(sl0,ice0,val = np.nan):
 # returns function equal to 1 where there is ice and val
 # elsewhere
 def ice_mask(sl0,ice0,val = np.nan):
-    mask = sl0.copy()
+    mask = ocean_function(sl0,ice0)
     for ilat in range(mask.nlat):
         for ilon in range(mask.nlon):            
-            sll  = sl0.data[ilat,ilon] 
-            icel = ice0.data[ilat,ilon]            
-            if(rhow*sll - rhoi*icel < 0. and icel > 0.): 
-                mask.data[ilat,ilon] = 1.
-            else:
+            if(mask.data[ilat,ilon] == 1.0 or ice0.data[ilat,ilon] == 0): 
                 mask.data[ilat,ilon] = val
+            else:
+                mask.data[ilat,ilon] = 1.0
     return mask
 
 
@@ -213,14 +253,10 @@ def ice_mask(sl0,ice0,val = np.nan):
 # returns function equal to 1 where over antarctica and val
 # elsewhere
 def antarctica_mask(sl0,ice0,val = np.nan):
-    mask = sl0.copy()
+    mask = ice_mask(sl0,ice0,val)
     for ilat,lat in enumerate(mask.lats()):
-        for ilon,lon in enumerate(mask.lons()):            
-            icel = ice0.data[ilat,ilon]            
-            if(icel > 0. and lat < 0.): 
-                mask.data[ilat,ilon] = 1.
-            else:
-                mask.data[ilat,ilon] = val
+        if(lat > 0):
+            mask.data[ilat,:] = val
     return mask
 
 
@@ -228,32 +264,20 @@ def antarctica_mask(sl0,ice0,val = np.nan):
 # returns function equal to 1 where over antarctica and val
 # elsewhere
 def greenland_mask(sl0,ice0,val = np.nan):
-    mask = sl0.copy()
+    mask = ice_mask(sl0,ice0,val)
     for ilat,lat in enumerate(mask.lats()):
-        for ilon,lon in enumerate(mask.lons()):            
-            icel = ice0.data[ilat,ilon]            
-            if(icel > 0. and lat > 0. and lon > 110): 
-                mask.data[ilat,ilon] = 1.
-            else:
-                mask.data[ilat,ilon] = val
+        if(lat < 0):
+            mask.data[ilat,:] = val
     return mask
 
 
 # returns function equal to 1 in oceans for lat in [lat1,lat2]
 # and equal to val elsewhere
-def altimetery_mask(sl0,ice0,lat1 = -66., lat2 = 66.,taper = False,val = np.nan):
-    mask = sl0.copy()
+def altimetery_mask(sl0,ice0,lat1 = -66., lat2 = 66.,val = np.nan):
+    mask = ocean_function(sl0,ice0)
     for ilat,lat in enumerate(mask.lats()):
-        for ilon,lon in enumerate(mask.lons()):
-            sll  = sl0.data[ilat,ilon] 
-            icel = ice0.data[ilat,ilon]            
-            if(rhow*sll - rhoi*icel >= 0. and icel == 0 and lat >= lat1 and lat <= lat2):
-                if(taper):
-                    fac = pi*(lat-lat2)/(lat2-lat1)
-                    mask.data[ilat,ilon] = np.sin(fac)
-                else:
-                    mask.data[ilat,ilon] = 1.0
-            else:
+        for ilon,lon in enumerate(mask.lons()):            
+            if(lat <= lat1 or lat >= lat2):
                 mask.data[ilat,ilon] = val
     return mask
 
@@ -644,9 +668,9 @@ def potential_coefficient_load(L,l,m,grid = 'GLQ',remove_psi = True):
 
 ############################################################################
 # returns the adjoint loads corresponding an altimetery estimate
-def sea_altimetery_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',taper = False,remove_psi = True):
+def sea_altimetery_load(sl0,ice0,lat1 = -66,lat2 = 66,grid = 'GLQ',remove_psi = True):
     L = sl0.lmax
-    zeta = altimetery_mask(sl0,ice0,lat1,lat2,taper = taper,val = 0.0)
+    zeta = altimetery_mask(sl0,ice0,lat1,lat2,val = 0.0)
     A = surface_integral(zeta)
     zeta = zeta/A
     zeta_u   = -1*zeta.copy()

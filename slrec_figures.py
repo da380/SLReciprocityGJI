@@ -466,7 +466,7 @@ print('relative difference with direct load average   = ',100*(GRACE_average-dir
 
 
 # set the adjoint loads
-zeta_d, zeta_u_d, zeta_phi_d, kk_d  = SL.sea_altimetery_load(sl0,ice0,taper = False)
+zeta_d, zeta_u_d, zeta_phi_d, kk_d  = SL.sea_altimetery_load(sl0,ice0)
 
 SL.plot(zeta_d,label = r'averaging function (m$^{-2}$)',ofile = fpath + 'altimetry_average.png')
 
