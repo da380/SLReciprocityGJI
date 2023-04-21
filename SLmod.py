@@ -8,6 +8,8 @@ from scipy.interpolate import RegularGridInterpolator
 sentinel = object()
 
 
+if __name__ == "__main__":
+    pass
 
 
 #########################################################
@@ -766,9 +768,23 @@ def random_ocean_load(C,Q):
     zeta -= C*surface_integral(zeta)/surface_integral(C)
     return zeta
     
+###################################################################
+# returns the relative amplitude of a function at a given degree
+def amplitude_at_degree(fun,l):
+    L = fun.lmax
+    if(l > L):
+        return 0.
+    fun_lm = fun.expand(normalization = "ortho")
+    p  = 0.
+    for ll in range(L+1):
+        for m in range(l+1):
+            p += fun_lm.coeffs[0,l,m]**2 + fun_lm.coeffs[1,l,m]**2
+    pl = 0.
+    for m in range(ll+1):
+        pl +=fun_lm.coeffs[0,ll,m]**2 + fun_lm.coeffs[1,ll,m]**2
+    if(p == 0.):
+        return 0
+    return np.sqrt(pl/p)
 
 
 
-
-if __name__ == "__main__":
-    pass
