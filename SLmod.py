@@ -37,13 +37,25 @@ ep = 1.e-8             # tolerance for iterations
 def plot(fun,**kwargs):
 
     # deal with optional arguments
-    cstring = kwargs.get('cmap','RdBu')
+    cstring = kwargs.get('cmap',None)
     ofile = kwargs.get('ofile',None)
     contour = kwargs.get('contour',False)
     ncont = kwargs.get('ncont',6)
     label = kwargs.get('label','')
     marker = kwargs.get('marker',None)
     clim = kwargs.get('clim',None)
+    clim_sym = kwargs.get('clim_sym',True)
+    clim_pos = kwargs.get('clim_pos',False)
+    clim_neg = kwargs.get('clim_neg',False)
+    clim_scale = kwargs.get('clim_scale',None)
+
+    if(cstring == None):
+        if(clim_pos):
+            cstring = "Blues"
+        elif(clim_neg):
+            cstring = "Reds_r"
+        else:
+            cstring = "RdBu"
     
     ax = plt.axes(projection=ccrs.PlateCarree())
     if(contour):
@@ -57,9 +69,19 @@ def plot(fun,**kwargs):
         lat = marker[0]
         lon = marker[1]
         plt.plot([lon],[lat],marker='o', markersize=5, color="red")
+    cm = np.nanmax(np.abs(fun.data))        
+    if(clim_sym):
+        clim = [-cm,cm]
+    if(clim_pos):
+        clim = [0,cm]
+    if(clim_neg):
+        clim = [-cm,0]        
     if(clim != None):
+        if(clim_scale != None):
+            c1 = clim_scale*clim[0]
+            c2 = clim_scale*clim[1]
+            clim = [c1,c2]
         plt.clim(clim)
-    vmin, vmax = plt.gci().get_clim()
     if(ofile == None):
         plt.show()
     else:
@@ -785,6 +807,7 @@ def amplitude_at_degree(fun,l):
     if(p == 0.):
         return 0
     return np.sqrt(pl/p)
+
 
 
 

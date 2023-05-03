@@ -38,7 +38,7 @@ sl0,ice0 = SL.get_sl_ice_data(L)
 
 # plot these fields
 SL.plot(sl0,label = 'sea level (m)',ofile = fpath+'sl0.png')
-SL.plot(ice0,label = 'ice thickness (m)',ofile = fpath+'ice0.png')
+SL.plot(ice0,label = 'ice thickness (m)',clim_pos = True,ofile = fpath+'ice0.png')
 
 # compute the ocean function
 C = SL.ocean_function(sl0,ice0)
@@ -90,7 +90,7 @@ sl,u,phi,om,psi = SL.fingerprint(C,zeta)
 ocean_mask = SL.ocean_mask(sl0,ice0)
 
 # plot the result globally
-SL.plot(sl,label = r'sea level change (m)',ofile = fpath+'sl_change.png')
+SL.plot(ocean_mask*sl,label = r'sea level change (m)',ofile = fpath+'sl_change.png')
 SL.plot(u,label = r'vertical displacement (m)',ofile = fpath+'vertical.png')
 SL.plot(-1*phi/g,label = r'geoid anomaly (m)',ofile = fpath+'geoid.png')
 
@@ -109,7 +109,9 @@ zeta_d,_,_,_ = SL.sea_level_load(L,lat,lon,angle = 0.)
 
 # solve the sea level equation for SL^{\dagger} and plot
 sl_d,_,_,_,_ = SL.fingerprint(C,zeta_d)
-SL.plot(sl_d,label = r'load kernel (m kg$^{-1}$)',ofile = fpath+'KSL_Boston_zeta.png')
+cm = np.max(sl_d.data)
+SL.plot(sl_d,label = r'load kernel (m kg$^{-1}$)',clim_pos = True,clim_scale = 0.1,ofile = fpath+'KSL_Boston_zeta.png')
+
 
 
 # set the value of sea level directly from the field 
@@ -134,8 +136,9 @@ print('relative difference    = ', np.abs((lhs-rhs)/lhs))
 
 # define and plot the sensitivity kernel with respect to ice thickness
 K = SL.rhoi*(1-C)*sl_d
+cm = np.max(K.data)
 land_mask = SL.land_mask(sl0,ice0)
-SL.plot(land_mask*K,label = r'ice kernel (m$^{-2}$)',ofile = fpath+'KSL_Boston_ice.png')
+SL.plot(land_mask*K,label = r'ice kernel (m$^{-2}$)',clim_pos = True,clim_scale = 0.1,ofile = fpath+'KSL_Boston_ice.png')
 
 
 ###########################################################################
@@ -391,7 +394,7 @@ LT = 100
 
 # define the averaging function as in Wahr et al. (1998) targeted at W. Antarctic
 w = SL.gaussian_averaging_function(L,r = 800,lat0 = -82.,lon0 = -110.,cut = cut)
-SL.plot(w,label = r'averaging kernel (m$^{-2}$)',ofile = fpath + 'antarctica_average.png')
+SL.plot(w,label = r'averaging kernel (m$^{-2}$)',clim_pos = True,ofile = fpath + 'antarctica_average.png')
 
 
 # form the adjoint loads
@@ -428,7 +431,7 @@ print('relative difference with direct load average   = ',100*(GRACE_average-dir
 
 # define the averaging function as in Wahr et al. (1998) targeted at W. Antarctic
 w = SL.gaussian_averaging_function(L,r = 700,lat0 = 73.,lon0 = -40.,cut = cut)
-SL.plot(w,label = r'averaging kernel (m$^{-2}$)',ofile = fpath + 'greenland_average.png')
+SL.plot(w,label = r'averaging kernel (m$^{-2}$)',clim_pos = True, ofile = fpath + 'greenland_average.png')
 
 # form the adjoint loads
 zeta_d, zeta_u_d, zeta_phi_d, kk_d  = SL.GRACE_average_load(w,LT = LT)
@@ -468,7 +471,7 @@ print('relative difference with direct load average   = ',100*(GRACE_average-dir
 # set the adjoint loads
 zeta_d, zeta_u_d, zeta_phi_d, kk_d  = SL.sea_altimetery_load(sl0,ice0)
 
-SL.plot(zeta_d,label = r'averaging function (m$^{-2}$)',ofile = fpath + 'altimetry_average.png')
+SL.plot(zeta_d,label = r'averaging function (m$^{-2}$)',clim_pos = True, ofile = fpath + 'altimetry_average.png')
 
 # solve the generalised fingerprint problem
 sl_d,_,_,_,_ = SL.generalised_fingerprint(C,zeta_d,zeta_u_d,zeta_phi_d,kk_d)
@@ -496,11 +499,11 @@ print('')
 
 
 # plot the kernel wrt zeta
-SL.plot(sl_d,label = r'load kernel (m kg$^{-1}$)',ofile = fpath + 'altimetry_load_kernel.png')
+SL.plot(sl_d,label = r'load kernel (m kg$^{-1}$)',clim_sym = False,cmap = "Reds_r",ofile = fpath + 'altimetry_load_kernel.png')
 
 # plot the kernel wrt I
 K = SL.rhoi*(1-C)*sl_d*SL.ice_mask(sl0,ice0,val = 0.)
-SL.plot(ice_mask*K,label = r'ice kernel (m$^{-2}$)',ofile = fpath + 'altimetry_ice_kernel.png')
+SL.plot(ice_mask*K,label = r'ice kernel (m$^{-2}$)',clim_sym = False,cmap = "Reds_r",ofile = fpath + 'altimetry_ice_kernel.png')
 
 Kval = -SL.rhoi/(SL.rhow*A)
 Ki = Kval*SL.ice_mask(sl0,ice0,val = 0.)
