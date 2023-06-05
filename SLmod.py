@@ -14,11 +14,12 @@ if __name__ == "__main__":
 
 #########################################################
 # set some constants
-b    = 6368000.          # mean radius of the Earth
+b    = 6368000.          # mean radius of the solid Earth 
 g    = 9.825652323       # mean surface gravity
 G    = 6.6723e-11        # gravitational constant
 rhow = 1000.0            # density of water
 rhoi =  917.0            # density of ice
+rhos = 2600.0            # surface density of solid Earth
 CC = 8.038e37            # polar moment of inertia 
 AA = 8.012e37            # equatorial moment of inertia
 Om = 2.*pi/(24.*3600.)   # mean rotation rate
@@ -32,7 +33,7 @@ ep = 1.e-8             # tolerance for iterations
 ##########################################################
 
 
-######################################################################
+############################################################
 # function to plot geographic data on GL grid.
 def plot(fun,**kwargs):
 
@@ -665,6 +666,27 @@ def displacement_load(L,lat,lon,grid = 'GLQ',angle = 1.):
     zeta_u   = -1*point_load(L,lats,lons,angle = angle,grid = grid)
     zeta_phi =  pysh.SHGrid.from_zeros(lmax=L,grid = grid)
     kk       = np.zeros(2)
+    return zeta,zeta_u,zeta_phi,kk
+
+
+
+
+##########################################################################
+# returns the adjoint loads for a sea level measurement at 
+def absolute_gravity_load(L,lat,lon,grid = 'GLQ',angle = 1.,remove_psi = True):
+    lats = np.full((1),lat)
+    lons = np.full((1),lon)
+    zeta     =  pysh.SHGrid.from_zeros(lmax=L,grid = grid)
+    zeta_u   =  (g/b-4*pi*G*rhos)*point_load(L,lats,lons,angle = angle,grid = grid)
+    zeta_phi = -g*point_load(L,lats,lons,angle = angle,grid = grid)
+    zeta_phi_lm = zeta_phi.expand
+    for l in range(L+1):
+        zeta_phi_lm.coeffs[:,l,:] *= (l+1)/b;
+    zeta_phi = zeta_phi_lm.expand(grid = grid)
+    if(remove_psi):
+        kk = -rotation_vector_from_zeta_psi(zeta_phi)
+    else:
+        kk = np.zeros(2)
     return zeta,zeta_u,zeta_phi,kk
 
 
