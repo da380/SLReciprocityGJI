@@ -57,32 +57,33 @@ def plot(fun,**kwargs):
             cstring = "Reds_r"
         else:
             cstring = "RdBu"
-    
     ax = plt.axes(projection=ccrs.PlateCarree())
     if(contour):
         plt.contourf(fun.lons()-180,fun.lats(),fun.data,cmap=cstring,levels = ncont)
     else:
         plt.pcolormesh(fun.lons()-180,fun.lats(),fun.data,shading = 'gouraud',cmap=cstring)
-    cbar = plt.colorbar()
+    cbar = plt.colorbar(location = "bottom",fraction=0.072, pad=0.04)
     ax.coastlines()
     cbar.set_label(label,labelpad = 10)
     if(marker != None):
         lat = marker[0]
         lon = marker[1]
         plt.plot([lon],[lat],marker='o', markersize=5, color="red")
-    cm = np.nanmax(np.abs(fun.data))        
-    if(clim_sym):
-        clim = [-cm,cm]
-    if(clim_pos):
-        clim = [0,cm]
-    if(clim_neg):
-        clim = [-cm,0]        
+    cm = np.nanmax(np.abs(fun.data))
     if(clim != None):
+        plt.clim(clim)
+    else:    
+        if(clim_sym):
+            clim = [-cm,cm]
+        if(clim_pos):
+            clim = [0,cm]
+        if(clim_neg):
+            clim = [-cm,0]        
         if(clim_scale != None):
             c1 = clim_scale*clim[0]
             c2 = clim_scale*clim[1]
             clim = [c1,c2]
-        plt.clim(clim)
+
     if(ofile == None):
         plt.show()
     else:
@@ -799,7 +800,7 @@ def gaussian_averaging_function(L,r,lat0,lon0,cut = False):
 # returns a random ice model derived from a zero-mean rotationally
 # invariant Gassian random field with the prescribed covariance
 
-def random_ice_model(sl0,ice0,Q):
+def random_ice_model(sl0,ice0,Q,b = 1.):
     return RF.random_field(Q,b)*ice_mask(sl0,ice0,val = 0.)
 
 ###################################################################
@@ -807,8 +808,8 @@ def random_ice_model(sl0,ice0,Q):
 # invariant Gassian random field with the prescribed covariance
 # note that the integral of the field over the oceans is set equal to
 # zero in accordance with conservation of mass
-def random_ocean_load(C,Q):
-    zeta = rhow*RF.random_field(Q)*C
+def random_ocean_load(C,Q,b = 1.):
+    zeta = rhow*RF.random_field(Q,b=b)*C
     zeta -= C*surface_integral(zeta)/surface_integral(C)
     return zeta
     
