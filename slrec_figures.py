@@ -31,7 +31,7 @@ rhow = SL.rhow
 #################################################################
 
 # set the truncation degree
-L=256
+L=512
 
 # read in the present day sea level and ice thickness
 sl0,ice0 = SL.get_sl_ice_data(L)
@@ -167,9 +167,11 @@ SL.plot(ice_mask*K,label = r'ice kernel (m$^{-2}$)',marker = [lat,lon],ofile = f
 #################################################################
 #################################################################
 
-# set the observation point in Thessaloniki
-lat = 40.6401
-lon = 22.9444
+# set the observation point at SENU GPS station in Greenland
+
+lat = 61.0696
+lon = -47.1413
+
 zeta_d,zeta_u_d,zeta_phi_d,kk_d = SL.displacement_load(L,lat,lon,angle = 0)
 
 # solve the generalised fingerprint problem
@@ -201,16 +203,18 @@ zeta_d,zeta_u_d,zeta_phi_d,kk_d = SL.displacement_load(L,lat,lon,angle = 1)
 # solve the generalised fingerprint problem
 sl_d,_,_,_,_ = SL.generalised_fingerprint(C,zeta_d,zeta_u_d,zeta_phi_d,kk_d)
 K = SL.rhoi*(1-C)*sl_d*SL.ice_mask(sl0,ice0,val = 0.)
-SL.plot(ice_mask*K,label = r'ice kernel (m$^{-2}$)',marker = [lat,lon],ofile = fpath + 'Thessaloniki.png')
-
+#SL.plot(ice_mask*K,label = r'ice kernel (m$^{-2}$)',xlim = [-70,-17],ylim = [55,90],marker = [lat,lon],ofile = fpath + 'SENU.png')
+SL.plot(sl_d,label = r'load kernel (m$^{-2}$)',xlim = [-70,-10],ylim = [55,90],marker = [lat,lon],ofile = fpath + 'SENU.png')
 
 
 #################################################################
 #################################################################
 
-# set the observation point in Melborne
-lat = -37.8136
-lon = 144.9631
+# set the observation point at DUPT Antarctica
+
+lat = -64.80495000
+lon = 	-62.81690000
+
 zeta_d,zeta_u_d,zeta_phi_d,kk_d = SL.displacement_load(L,lat,lon,angle = 0)
 
 # solve the generalised fingerprint problem
@@ -242,7 +246,9 @@ zeta_d,zeta_u_d,zeta_phi_d,kk_d = SL.displacement_load(L,lat,lon,angle = 1)
 # solve the generalised fingerprint problem
 sl_d,_,_,_,_ = SL.generalised_fingerprint(C,zeta_d,zeta_u_d,zeta_phi_d,kk_d)
 K = SL.rhoi*(1-C)*sl_d*SL.ice_mask(sl0,ice0,val = 0.)
-SL.plot(ice_mask*K,label = r'ice kernel (m$^{-2}$)',marker = [lat,lon],ofile = fpath + 'Melbourne.png')
+#SL.plot(ice_mask*K,label = r'ice kernel (m$^{-2}$)',xlim = [-70,-17],ylim = [55,90],marker = [lat,lon],ofile = fpath + 'BLAS.png')
+SL.plot(sl_d,label = r'load kernel (m$^{-2}$)',xlim = [-100,-40],ylim = [-90,-55],marker = [lat,lon],ofile = fpath + 'DUPT.png')
+
 
 
 

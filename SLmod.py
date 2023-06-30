@@ -49,6 +49,8 @@ def plot(fun,**kwargs):
     clim_pos = kwargs.get('clim_pos',False)
     clim_neg = kwargs.get('clim_neg',False)
     clim_scale = kwargs.get('clim_scale',None)
+    xlim =  kwargs.get('xlim',None)
+    ylim =  kwargs.get('ylim',None)
 
     if(cstring == None):
         if(clim_pos):
@@ -83,7 +85,14 @@ def plot(fun,**kwargs):
             c1 = clim_scale*clim[0]
             c2 = clim_scale*clim[1]
             clim = [c1,c2]
+        plt.clim(clim)
 
+    if(xlim != None):
+        plt.xlim(xlim)
+
+    if(ylim != None):
+        plt.ylim(ylim)
+            
     if(ofile == None):
         plt.show()
     else:
