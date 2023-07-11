@@ -70,7 +70,7 @@ def plot(fun,**kwargs):
     if(marker != None):
         lat = marker[0]
         lon = marker[1]
-        plt.plot([lon],[lat],marker='o', markersize=5, color="red")
+        plt.plot([lon],[lat],marker='o', markersize=10, color="green")
     cm = np.nanmax(np.abs(fun.data))
     if(clim != None):
         plt.clim(clim)

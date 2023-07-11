@@ -110,7 +110,7 @@ zeta_d,_,_,_ = SL.sea_level_load(L,lat,lon,angle = 0.)
 # solve the sea level equation for SL^{\dagger} and plot
 sl_d,_,_,_,_ = SL.fingerprint(C,zeta_d)
 cm = np.max(sl_d.data)
-SL.plot(sl_d,label = r'load kernel (m kg$^{-1}$)',clim_pos = True,clim_scale = 0.1,ofile = fpath+'KSL_Boston_zeta.png')
+SL.plot(sl_d,label = r'load kernel (m kg$^{-1}$)',clim_scale = 0.1,ofile = fpath+'KSL_Boston_zeta.png')
 
 
 
@@ -138,7 +138,7 @@ print('relative difference    = ', np.abs((lhs-rhs)/lhs))
 K = SL.rhoi*(1-C)*sl_d
 cm = np.max(K.data)
 land_mask = SL.land_mask(sl0,ice0)
-SL.plot(land_mask*K,label = r'ice kernel (m$^{-2}$)',clim_pos = True,clim_scale = 0.1,ofile = fpath+'KSL_Boston_ice.png')
+SL.plot(land_mask*K,label = r'ice kernel (m$^{-2}$)',clim_scale = 0.1,ofile = fpath+'KSL_Boston_ice.png')
 
 
 ###########################################################################
