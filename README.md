@@ -1,5 +1,6 @@
-Python codes to calculate sea level fingerprints.
 
-This code makes use of following non-standard packages:
-pyshtools
-cartopy
+# Summary
+
+Supporting material for the paper "Reciprocity and sensitivity kernels for sea level fingerprints" by Al-Attar *et al.* (2023) which has been submitted to GJI.
+
+
