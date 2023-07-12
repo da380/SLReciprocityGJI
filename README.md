@@ -16,7 +16,14 @@ the following packagees:
 on its use and installation.
 
 2. **cartopy** which is used for plotting coastlines on various figures.  See https://scitools.org.uk/cartopy/docs/latest/ for details on its use and
-installation. 
+installation.
+
+# Data files
+
+Within the data subdirectory there are three files. Two are the present-day sea level and ice thickness which have been taken from the
+model ICE6G of Argus *et al.* (2014). See https://www.atmosp.physics.utoronto.ca/~peltier/data.php for the source of this data. The final
+file contains generalised Love numbers calculated for PREM of Dziewonski & Anderson (1981). These calculations were done with using a Fortran code
+love_numbers.90 which forms part of the repository https://github.com/da380/gia3D.git. 
 
 
 
