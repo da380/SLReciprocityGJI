@@ -12,7 +12,7 @@ These codes have been written in collaboration between David Al-Attar and Frank 
 
 # Dependencies
 
-A list of all key import statements can be seen in the script SLmod.py. Beyond standard things (matplotlib, numpy), it is necessary to have installed
+A list of all key import statements can be seen in the script SLmod.py. Beyond standard things (matplotlib, numpy, etc.), it is necessary to  install
 the following packagees:
 
 1. **pyshtools** which is used for fast spherical harmonic transformations. See https://shtools.github.io/SHTOOLS/using-with-python.html for details
@@ -23,10 +23,10 @@ installation.
 
 # Data files
 
-Within the data subdirectory there are three files. Two are the present-day sea level and ice thickness which have been taken from the
+Within the data subdirectory there are three files. Two are the present-day sea level and ice thickness that have been taken from the
 model ICE6G of Argus *et al.* (2014). See https://www.atmosp.physics.utoronto.ca/~peltier/data.php for the source of this data. The final
-file contains generalised Love numbers calculated for PREM of Dziewonski & Anderson (1981). These calculations were done with using a Fortran code
-love_numbers.90 which forms part of the repository https://github.com/da380/gia3D.git. 
+file contains generalised Love numbers for PREM of Dziewonski & Anderson (1981). The code used for these calculations can
+be found within https://github.com/da380/gia3D.git. 
 
 
 
