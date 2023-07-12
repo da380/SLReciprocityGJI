@@ -2,10 +2,13 @@
 # Summary
 
 Supporting material for the paper "Reciprocity and sensitivity kernels for sea level fingerprints" by Al-Attar *et al.* (2023)
-which has been submitted to GJI. The codes and model files provided here are sufficient to reproduce all calculations and figures
+which has been submitted to GJI. The codes and model files provided are sufficient to reproduce all calculations and figures
 within the submitted paper. The Jupyter notebook MakeFigures.ipynb can be used to generate the figures interactively or to experiment more
 generally with the methods developed within the paper. The Python3 script MakeFigures.py can be used to generate all figures and save them to
-a given location.
+a given location. The computational routines needed to solve the sea level equation are located in SLmod.py. There is also a module RFmod.py which
+is used to generate Gaussian random fields on a sphere. This is, optionally, used within the main scripts to generate random ice thickness changes.
+
+These codes have been written in collaboration between David Al-Attar and Frank Syvret.
 
 # Dependencies
 
