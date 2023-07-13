@@ -18,7 +18,7 @@ within  https://github.com/da380/gia3D.git.
 
 If you make use of these codes within your own work, an acknowledgement would be appreciated along with a citation to [[1]](#1) when/if it is published. 
 
-# Dependencies
+## Dependencies
 
 A list of all key import statements can be seen in the script SLmod.py. Beyond standard things (matplotlib, numpy, etc.), it is necessary to  install
 the following packagees:
