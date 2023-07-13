@@ -6,7 +6,7 @@ which has been submitted to Geophysical Journal International. These codes are s
 within the  paper. This can be done either with the Jupyter notebook, MakeFigures.ipynb, or using the Python script, MakeFigures.py,
 which saves the figures to a chosen directory. 
 
-Functions needed to solving the (generalised) fingerprint problem at contained in SLmod.py. There is also RFmod.py which contains functions
+Functions needed to solve the (generalised) fingerprint problem at contained in SLmod.py. There is also RFmod.py which contains functions
 for generating Gaussian random fields on a sphere, this being, optionally, used within the main scripts to test the methods against
 random changes of ice thickness.
 
