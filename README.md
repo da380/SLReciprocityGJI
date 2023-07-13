@@ -16,7 +16,7 @@ model ICE6G of [[2]](#2) and [[3]](#3) . See https://www.atmosp.physics.utoronto
 Tidal and (generalised) loading Love numbers have been pre-calculated for PREM [[4]](#4) using a Fortran code that can be found
 within  https://github.com/da380/gia3D.git. 
 
-If you make use of these codes within your own work, an acknowledgement would be appreciated and a citation to [[1]](#1) when/if it is published. 
+If you make use of these codes within your own work, an acknowledgement would be appreciated along with a citation to [[1]](#1) when/if it is published. 
 
 # Dependencies
 
