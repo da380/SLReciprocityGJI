@@ -393,21 +393,14 @@ SL.plot(100*ice_mask*(K1-K2)/norm,label = r'difference in ice kernels (%)',clim 
 #########################################################################################
 #########################################################################################
 
-# cut out degrees 0 and 1 from averaging function?
-cut = False
+
 
 # truncation degree for GRACE average (LT = 0 means no truncation)
 LT = 100
 
-
 # define the averaging function as in Wahr et al. (1998) targeted at W. Antarctic
-w = SL.gaussian_averaging_function(L,r = 800,lat0 = -82.,lon0 = -110.,cut = cut)
+w = SL.gaussian_averaging_function(L,r = 500,lat0 = -82.,lon0 = -110.,cut = False)
 SL.plot(w,label = r'averaging kernel (m$^{-2}$)',clim_pos = True,ofile = fpath + 'antarctica_average.png')
-
-
-wc = SL.gaussian_averaging_function(L,r = 800,lat0 = -82.,lon0 = -110.,cut = True)
-norm = np.max(np.abs(w.data[:,:]))
-SL.plot(100*(wc-w)/norm,label = r'relative projection of averaging function (%)',ofile = fpath + 'antarctica_average_diff.png')
 
 # form the adjoint loads
 zeta_d, zeta_u_d, zeta_phi_d, kk_d  = SL.GRACE_average_load(w,LT = LT)
@@ -424,32 +417,41 @@ print('left hand side            = ',lhs)
 print('right hand side           = ',rhs)
 print('relative difference       = ',np.abs((lhs-rhs)/lhs))
 print('')
-
-GRACE_average = SL.GRACE_average_measurement(phi,w,LT = LT)/SL.rhow
-direct_load_average = SL.surface_integral(zeta*w)/SL.rhow
 
 # plot the kernel wrt zeta
 SL.plot(sl_d,label = r'load kernel (m$^{-2}$)',cmap = "Blues",clim_pos = True,ofile = fpath + 'antarctica_kernel.png')
 norm = np.max(np.abs(w.data[:,:]))
 SL.plot(100*(sl_d-w)/norm,label = 'difference in load kernels (%)',ofile = fpath + 'antarctica_kernel_difference.png')
 
+GRACE_average = SL.GRACE_average_measurement(phi,w,LT = LT)/SL.rhow
+direct_load_average = SL.surface_integral(zeta*w)/SL.rhow
 
 print('GRACE average of load = ',GRACE_average)
 print('average of direct load  = ',direct_load_average)
 print('relative difference with direct load average   = ',100*(GRACE_average-direct_load_average) \
                                                                /direct_load_average,'%')
 
+# Repeat with l <= 1 removed from weight function
+w = SL.gaussian_averaging_function(L,r = 500,lat0 = -82.,lon0 = -110.,cut = True)
+zeta_d, zeta_u_d, zeta_phi_d, kk_d  = SL.GRACE_average_load(w,LT = LT)
+sl_d,_,_,_,_ = SL.generalised_fingerprint(C,zeta_d,zeta_u_d,zeta_phi_d,kk_d)
+GRACE_average = SL.GRACE_average_measurement(phi,w,LT = LT)/SL.rhow
+direct_load_average = SL.surface_integral(zeta*w)/SL.rhow
+norm = np.max(np.abs(w.data[:,:]))
+SL.plot(100*(sl_d-w)/norm,label = 'difference in load kernels (%)',ofile = fpath + 'antarctica_kernel_difference_cut.png')
+print('GRACE average of load = ',GRACE_average)
+print('average of direct load  = ',direct_load_average)
+print('relative difference with direct load average   = ',100*(GRACE_average-direct_load_average) \
+                                                               /direct_load_average,'%')
+
+
 
 ##########################################################
 # now do the same thing but for a Greenland average
 
 # define the averaging function as in Wahr et al. (1998) targeted at Greenland
-w = SL.gaussian_averaging_function(L,r = 700,lat0 = 73.,lon0 = -40.,cut = cut)
+w = SL.gaussian_averaging_function(L,r = 400,lat0 = 73.,lon0 = -40.,cut = False)
 SL.plot(w,label = r'averaging kernel (m$^{-2}$)',clim_pos = True, ofile = fpath + 'greenland_average.png')
-
-wc = SL.gaussian_averaging_function(L,r = 700,lat0 = 73.,lon0 = -40.,cut = True)
-norm = np.max(np.abs(w.data[:,:]))
-SL.plot(100*(wc-w)/norm,label = r'relative projection of averaging function (%)',ofile = fpath + 'greenland_average_diff.png')
 
 
 # form the adjoint loads
@@ -468,20 +470,33 @@ print('right hand side           = ',rhs)
 print('relative difference       = ',np.abs((lhs-rhs)/lhs))
 print('')
 
-GRACE_average      = SL.GRACE_average_measurement(phi,w,LT = LT)/SL.rhow
-direct_load_average = SL.surface_integral(zeta*w)/SL.rhow
-
-
+# plot the kernel wrt zeta
 # plot the kernel wrt zeta
 SL.plot(sl_d,label = r'load kernel (m$^{-2}$)',cmap = "Blues",clim_pos = True,ofile = fpath + 'greenland_kernel.png')
 norm = np.max(np.abs(w.data[:,:]))
 SL.plot(100*(sl_d-w)/norm,label = 'difference in load kernels (%)',ofile = fpath + 'greenland_kernel_difference.png')
 
+
+GRACE_average      = SL.GRACE_average_measurement(phi,w,LT = LT)/SL.rhow
+direct_load_average = SL.surface_integral(zeta*w)/SL.rhow
+
+
 print('GRACE average of load = ',GRACE_average)
 print('average of direct load  = ',direct_load_average)
 print('relative difference with direct load average   = ',100*(GRACE_average-direct_load_average) \
                                                                /direct_load_average,'%')
-
+# Repeat with l <=1 removed from weight function
+w = SL.gaussian_averaging_function(L,r = 400,lat0 = 73.,lon0 = -40.,cut = True)
+zeta_d, zeta_u_d, zeta_phi_d, kk_d  = SL.GRACE_average_load(w,LT = LT)
+sl_d,_,_,_,_ = SL.generalised_fingerprint(C,zeta_d,zeta_u_d,zeta_phi_d,kk_d)
+GRACE_average      = SL.GRACE_average_measurement(phi,w,LT = LT)/SL.rhow
+direct_load_average = SL.surface_integral(zeta*w)/SL.rhow
+norm = np.max(np.abs(w.data[:,:]))
+SL.plot(100*(sl_d-w)/norm,label = 'difference in load kernels (%)',ofile = fpath + 'greenland_kernel_difference_cut.png')
+print('GRACE average of load = ',GRACE_average)
+print('average of direct load  = ',direct_load_average)
+print('relative difference with direct load average   = ',100*(GRACE_average-direct_load_average) \
+                                                               /direct_load_average,'%')
 
 
 
