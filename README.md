@@ -20,15 +20,9 @@ If you make use of these codes within your own work, an acknowledgement would be
 
 ## Dependencies
 
-A list of all key import statements can be seen in the script SLmod.py. Beyond standard things (matplotlib, numpy, etc.), it is necessary to  install
-the following packagees:
+Details can be found in `requirements.txt`. To install the necessary modules using `pip` you can use:
 
-1. **pyshtools** which is used for fast spherical harmonic transformations. See https://shtools.github.io/SHTOOLS/using-with-python.html for details
-on its use and installation.
-
-2. **cartopy** which is used for plotting coastlines on various figures.  See https://scitools.org.uk/cartopy/docs/latest/ for details on its use and
-installation.
-
+`pip install -r requirements.txt`
 
 
 ## References
