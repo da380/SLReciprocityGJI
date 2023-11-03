@@ -2,7 +2,7 @@
 ## Summary
 
 Supporting material for [[1]](#1)
-which has been submitted to Geophysical Journal International. These codes are sufficient to reproduce all calculations and figures
+which has been accepted for publication in Geophysical Journal International. These codes are sufficient to reproduce all calculations and figures
 within the  paper. This can be done either with the Jupyter notebook, MakeFigures.ipynb, or using the Python script, MakeFigures.py,
 which saves the figures to a chosen directory. 
 
